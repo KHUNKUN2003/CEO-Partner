@@ -1,0 +1,23 @@
+{
+  "name": "ceo-partner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test",
+    "check": "node --check src/aiClient.js && node --check src/aiTools.js && node --check src/analysis.js && node --check src/config.js && node --check src/dailyReport.js && node --check src/dates.js && node --check src/index.js && node --check src/lineClient.js && node --check src/metaClient.js && node --check src/scheduler.js && node --check src/server.js && node --check src/storage.js && node --check scripts/apply-schema.js && node --check scripts/verify-db.js",
+    "db:apply": "node scripts/apply-schema.js",
+    "db:verify": "node scripts/verify-db.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "node-cron": "^4.2.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
