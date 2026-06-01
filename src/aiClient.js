@@ -1,7 +1,10 @@
-function buildTools({ enableGoogleSearch, functionDeclarations }) {
+function buildTools({ enableGoogleSearch, enableCodeExecution, functionDeclarations }) {
   const tools = [];
   if (enableGoogleSearch) {
     tools.push({ google_search: {} });
+  }
+  if (enableCodeExecution) {
+    tools.push({ code_execution: {} });
   }
   if (functionDeclarations?.length) {
     tools.push({ function_declarations: functionDeclarations });
@@ -25,7 +28,7 @@ function buildGenerationConfig({ responseSchema } = {}) {
 
 export function buildGeminiRequest(
   prompt,
-  { enableGoogleSearch = false, functionDeclarations = [], responseSchema } = {}
+  { enableGoogleSearch = false, enableCodeExecution = false, functionDeclarations = [], responseSchema } = {}
 ) {
   const body = {
     contents: [
@@ -37,11 +40,11 @@ export function buildGeminiRequest(
     generationConfig: buildGenerationConfig({ responseSchema })
   };
 
-  const tools = buildTools({ enableGoogleSearch, functionDeclarations });
+  const tools = buildTools({ enableGoogleSearch, enableCodeExecution, functionDeclarations });
   if (tools.length) {
     body.tools = tools;
   }
-  if (enableGoogleSearch && functionDeclarations.length) {
+  if ((enableGoogleSearch || enableCodeExecution) && functionDeclarations.length) {
     body.tool_config = {
       include_server_side_tool_invocations: true
     };
@@ -127,12 +130,18 @@ export async function generateText({
   model,
   prompt,
   enableGoogleSearch = false,
+  enableCodeExecution = false,
   functionDeclarations = [],
   functionHandlers = {},
   responseSchema,
   fetchImpl = fetch
 }) {
-  const request = buildGeminiRequest(prompt, { enableGoogleSearch, functionDeclarations, responseSchema });
+  const request = buildGeminiRequest(prompt, {
+    enableGoogleSearch,
+    enableCodeExecution,
+    functionDeclarations,
+    responseSchema
+  });
   let body = await postGemini({ apiKey, model, requestBody: request, fetchImpl });
 
   for (let round = 0; round < 3; round += 1) {

@@ -54,7 +54,7 @@ test("daily report fetches Meta, generates AI report, stores, and pushes LINE", 
   const result = await runDailyReport({
     config: {
       line: { channelAccessToken: "line-token", targetId: "" },
-      google: { apiKey: "google-token", model: "gemini" }
+      google: { apiKey: "google-token", model: "gemini", codeExecution: true }
     },
     dateRange: { date: "2026-05-31", since: "2026-05-31", until: "2026-05-31" },
     storage,
@@ -62,8 +62,9 @@ test("daily report fetches Meta, generates AI report, stores, and pushes LINE", 
       events.push(["range", dateRange.since, dateRange.until, dateRange.days]);
       return { reportDate: dateRange.date, page: { name: "Fulltank Garage" } };
     },
-    generateText: async ({ responseSchema }) => {
+    generateText: async ({ responseSchema, enableCodeExecution }) => {
       events.push(["schema", responseSchema.required.includes("priority")]);
+      events.push(["code-execution", enableCodeExecution]);
       return JSON.stringify({
         yesterday_summary: "AI summary",
         today_actions: ["Action one"],
@@ -81,6 +82,7 @@ test("daily report fetches Meta, generates AI report, stores, and pushes LINE", 
     ["range", "2026-05-31", "2026-05-31", undefined],
     ["snapshot", "2026-05-31"],
     ["schema", true],
+    ["code-execution", true],
     [
       "report",
       "2026-05-31",

@@ -4,6 +4,7 @@ const DEFAULTS = {
   APP_TIMEZONE: "Asia/Bangkok",
   DAILY_REPORT_CRON: "0 8 * * *",
   GOOGLE_AI_MODEL: "gemini-3.5-flash",
+  GOOGLE_CODE_EXECUTION: "true",
   GOOGLE_SEARCH_GROUNDING: "true",
   META_CONTENT_MAX_ITEMS: "5000",
   META_GRAPH_VERSION: "v24.0",
@@ -49,7 +50,8 @@ export function loadConfig(env = process.env) {
     google: {
       apiKey: valueFrom(env, "GOOGLE_AI_API_KEY"),
       model: valueFrom(env, "GOOGLE_AI_MODEL"),
-      searchGrounding: valueFrom(env, "GOOGLE_SEARCH_GROUNDING").toLowerCase() !== "false"
+      searchGrounding: valueFrom(env, "GOOGLE_SEARCH_GROUNDING").toLowerCase() !== "false",
+      codeExecution: valueFrom(env, "GOOGLE_CODE_EXECUTION").toLowerCase() !== "false"
     },
     line: {
       channelSecret: valueFrom(env, "LINE_CHANNEL_SECRET"),

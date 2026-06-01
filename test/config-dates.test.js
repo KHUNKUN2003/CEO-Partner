@@ -28,6 +28,7 @@ test("config accepts required values and applies defaults", () => {
   assert.equal(config.meta.contentMaxItems, 5000);
   assert.equal(config.google.model, "gemini-3.5-flash");
   assert.equal(config.google.searchGrounding, true);
+  assert.equal(config.google.codeExecution, true);
 });
 
 test("Bangkok yesterday returns a stable local date", () => {

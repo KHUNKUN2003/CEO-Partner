@@ -123,6 +123,7 @@ export function buildDailyReportPrompt({ reportDate, snapshot }) {
     "Use the Meta data below to produce practical recommendations for tomorrow's business actions.",
     "The daily report normally covers yesterday in Bangkok time, unless the date range says otherwise.",
     "Do not limit yourself to a narrow template. Reason across ads, content, offers, operations, customer intent, and risks.",
+    "Use Code Execution for calculations when useful, especially for rates, comparisons, totals, and ranking numeric performance.",
     "Never reveal API tokens or secrets. If data is missing, say what is missing and still provide the best next action.",
     "",
     `Report date: ${reportDate}`,

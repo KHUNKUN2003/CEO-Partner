@@ -287,16 +287,24 @@ test("Gemini request body can enable Google Search grounding", () => {
   assert.deepEqual(body.tools, [{ google_search: {} }]);
 });
 
+test("Gemini request body can enable Code Execution", () => {
+  const body = buildGeminiRequest("calculate ROI", { enableCodeExecution: true });
+
+  assert.deepEqual(body.tools, [{ code_execution: {} }]);
+});
+
 test("Gemini request body can declare CEO Partner function tools", () => {
   const declarations = buildCeoPartnerFunctionDeclarations();
   const body = buildGeminiRequest("check inbox", {
     enableGoogleSearch: true,
+    enableCodeExecution: true,
     functionDeclarations: declarations
   });
 
   assert.equal(body.tools[0].google_search.constructor, Object);
-  assert.equal(body.tools[1].function_declarations[0].name, "get_latest_meta_snapshot");
-  assert.match(body.tools[1].function_declarations[0].description, /Meta/i);
+  assert.equal(body.tools[1].code_execution.constructor, Object);
+  assert.equal(body.tools[2].function_declarations[0].name, "get_latest_meta_snapshot");
+  assert.match(body.tools[2].function_declarations[0].description, /Meta/i);
   assert.equal(body.tool_config.include_server_side_tool_invocations, true);
 });
 

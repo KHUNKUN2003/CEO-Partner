@@ -10,6 +10,7 @@ CEO Partner is a Node.js backend automation service for a business owner. It fet
 - Receives LINE webhook messages and replies with AI using the latest stored business context.
 - Fetches fresh Meta data before answering LINE chat messages, then falls back to the latest stored snapshot if Meta is unavailable.
 - Enables Gemini Google Search grounding so current web information can support answers and sources can be appended when Gemini returns grounding metadata.
+- Enables Gemini Code Execution for daily report calculations when useful.
 - Logs the first LINE `userId`, `groupId`, or `roomId` that messages the bot so it can be used as `LINE_TARGET_ID`.
 
 ## Setup
@@ -32,6 +33,7 @@ META_CONTENT_MAX_ITEMS=5000
 GOOGLE_AI_API_KEY=
 GOOGLE_AI_MODEL=gemini-3.5-flash
 GOOGLE_SEARCH_GROUNDING=true
+GOOGLE_CODE_EXECUTION=true
 LINE_CHANNEL_SECRET=
 LINE_CHANNEL_ACCESS_TOKEN=
 LINE_TARGET_ID=

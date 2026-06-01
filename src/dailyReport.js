@@ -33,6 +33,7 @@ export async function runDailyReport({
       model: config.google.model,
       prompt,
       enableGoogleSearch: config.google.searchGrounding,
+      enableCodeExecution: config.google.codeExecution,
       responseSchema: buildDailyReportSchema()
     });
     const reportText = formatDailyReportJson(JSON.parse(reportOutput));
