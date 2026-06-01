@@ -118,6 +118,8 @@ DAILY_REPORT_CRON=0 8 * * *
 APP_TIMEZONE=Asia/Bangkok
 ```
 
+The daily report analyzes yesterday in Bangkok time.
+
 ## Test
 
 ```powershell

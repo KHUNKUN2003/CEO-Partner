@@ -121,10 +121,13 @@ export function buildDailyReportPrompt({ reportDate, snapshot }) {
   return [
     "You are CEO Partner, an AI business partner for the owner.",
     "Use the Meta data below to produce practical recommendations for tomorrow's business actions.",
+    "The daily report normally covers yesterday in Bangkok time, unless the date range says otherwise.",
     "Do not limit yourself to a narrow template. Reason across ads, content, offers, operations, customer intent, and risks.",
     "Never reveal API tokens or secrets. If data is missing, say what is missing and still provide the best next action.",
     "",
     `Report date: ${reportDate}`,
+    `Meta date range: ${snapshot.since || snapshot.reportSince || "unknown"} to ${snapshot.until || snapshot.reportUntil || reportDate}`,
+    `Range days: ${snapshot.days || 1}`,
     "",
     "Meta snapshot summary:",
     prettyJson(summarizeMetaSnapshot(snapshot)),

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { loadConfig } from "../src/config.js";
-import { getBangkokYesterday } from "../src/dates.js";
+import { getBangkokPreviousDays, getBangkokYesterday } from "../src/dates.js";
 
 test("config requires core production secrets", () => {
   assert.throws(
@@ -37,4 +37,14 @@ test("Bangkok yesterday returns a stable local date", () => {
   assert.equal(result.date, "2026-05-31");
   assert.equal(result.since, "2026-05-31");
   assert.equal(result.until, "2026-05-31");
+});
+
+test("Bangkok previous 7 days returns a stable range ending yesterday", () => {
+  const now = new Date("2026-06-01T01:30:00+07:00");
+  const result = getBangkokPreviousDays(now, 7);
+
+  assert.equal(result.date, "2026-05-31");
+  assert.equal(result.since, "2026-05-25");
+  assert.equal(result.until, "2026-05-31");
+  assert.equal(result.days, 7);
 });

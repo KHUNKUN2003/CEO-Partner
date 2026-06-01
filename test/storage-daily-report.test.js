@@ -58,7 +58,10 @@ test("daily report fetches Meta, generates AI report, stores, and pushes LINE", 
     },
     dateRange: { date: "2026-05-31", since: "2026-05-31", until: "2026-05-31" },
     storage,
-    fetchMetaSnapshot: async () => ({ reportDate: "2026-05-31", page: { name: "Fulltank Garage" } }),
+    fetchMetaSnapshot: async ({ dateRange }) => {
+      events.push(["range", dateRange.since, dateRange.until, dateRange.days]);
+      return { reportDate: dateRange.date, page: { name: "Fulltank Garage" } };
+    },
     generateText: async ({ responseSchema }) => {
       events.push(["schema", responseSchema.required.includes("priority")]);
       return JSON.stringify({
@@ -75,6 +78,7 @@ test("daily report fetches Meta, generates AI report, stores, and pushes LINE", 
 
   assert.equal(result.ok, true);
   assert.deepEqual(events, [
+    ["range", "2026-05-31", "2026-05-31", undefined],
     ["snapshot", "2026-05-31"],
     ["schema", true],
     [
@@ -88,6 +92,41 @@ test("daily report fetches Meta, generates AI report, stores, and pushes LINE", 
       "U123",
       "CEO Partner รายงานประจำวัน\n\nสรุปเมื่อวาน: AI summary\n\nสิ่งที่ควรทำวันนี้:\n1. Action one\n\nไอเดียคอนเทนต์:\n1. Content one\n\nคำแนะนำโฆษณา:\n1. Ad one\n\nแนวโน้ม Inbox: Inbox trend\n\nPriority: Priority one"
     ]
+  ]);
+});
+
+test("daily report defaults to yesterday in Bangkok time", async () => {
+  const events = [];
+  await runDailyReport({
+    config: {
+      line: { channelAccessToken: "line-token", targetId: "" },
+      google: { apiKey: "google-token", model: "gemini" }
+    },
+    storage: {
+      saveSnapshot: async () => 1,
+      saveReport: async ({ reportDate }) => events.push(["report", reportDate]),
+      getDefaultLineTarget: async () => ""
+    },
+    now: new Date("2026-06-01T01:30:00+07:00"),
+    fetchMetaSnapshot: async ({ dateRange }) => {
+      events.push(["range", dateRange.since, dateRange.until, dateRange.days]);
+      return { reportDate: dateRange.date, page: { name: "Fulltank Garage" } };
+    },
+    generateText: async () =>
+      JSON.stringify({
+        yesterday_summary: "AI summary",
+        today_actions: [],
+        content_ideas: [],
+        ad_recommendations: [],
+        inbox_trend: "Inbox trend",
+        priority: "Priority one"
+      }),
+    pushText: async () => {}
+  });
+
+  assert.deepEqual(events, [
+    ["range", "2026-05-31", "2026-05-31", undefined],
+    ["report", "2026-05-31"]
   ]);
 });
 

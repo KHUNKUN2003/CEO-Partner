@@ -7,7 +7,8 @@ import { pushText as defaultPushText } from "./lineClient.js";
 export async function runDailyReport({
   config,
   storage,
-  dateRange = getBangkokYesterday(),
+  now = new Date(),
+  dateRange = getBangkokYesterday(now),
   fetchMetaSnapshot = defaultFetchMetaSnapshot,
   generateText = defaultGenerateText,
   pushText = defaultPushText
@@ -16,6 +17,9 @@ export async function runDailyReport({
     const snapshot = await fetchMetaSnapshot({ config, dateRange });
     const snapshotWithAssets = {
       ...snapshot,
+      since: dateRange.since,
+      until: dateRange.until,
+      days: dateRange.days,
       pageId: config.meta?.pageId ?? snapshot.page?.id,
       adAccountId: config.meta?.adAccountId ?? snapshot.adAccountId
     };
