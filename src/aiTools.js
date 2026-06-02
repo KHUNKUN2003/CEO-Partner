@@ -88,6 +88,77 @@ export function buildCeoPartnerFunctionDeclarations() {
         },
         required: ["summary", "startDateTime"]
       }
+    },
+    {
+      name: "create_google_sheet_report",
+      description:
+        "Create a Google Sheets report with tabular data and an optional chart when the user asks for a spreadsheet, chart, graph, dashboard table, or visual data report.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "Spreadsheet title."
+          },
+          headers: {
+            type: "array",
+            description: "Column headers.",
+            items: { type: "string" }
+          },
+          rows: {
+            type: "array",
+            description: "Rows as arrays matching the headers.",
+            items: {
+              type: "array",
+              items: { type: "string" }
+            }
+          },
+          chartType: {
+            type: "string",
+            description: "Basic chart type.",
+            enum: ["COLUMN", "BAR", "LINE", "PIE"]
+          },
+          chartTitle: {
+            type: "string",
+            description: "Optional chart title."
+          }
+        },
+        required: ["title", "headers", "rows"]
+      }
+    },
+    {
+      name: "create_google_slides_report",
+      description:
+        "Create a Google Slides presentation when the user asks for slides, deck, presentation, pitch, or a visual executive report.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "Presentation title."
+          },
+          subtitle: {
+            type: "string",
+            description: "Optional subtitle."
+          },
+          slides: {
+            type: "array",
+            description: "Presentation slides.",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                bullets: {
+                  type: "array",
+                  items: { type: "string" }
+                },
+                body: { type: "string" }
+              }
+            }
+          }
+        },
+        required: ["title", "slides"]
+      }
     }
   ];
 }
@@ -125,7 +196,9 @@ export function createCeoPartnerTools({ config, storage, getFreshSnapshot, works
       },
       get_latest_business_report: async () => (await storage.getLatestReport?.()) || "No report has been generated yet.",
       create_google_doc: async ({ title, content } = {}) => getWorkspaceClient().createDocument({ title, content }),
-      create_calendar_event: async (event = {}) => getWorkspaceClient().createCalendarEvent(event)
+      create_calendar_event: async (event = {}) => getWorkspaceClient().createCalendarEvent(event),
+      create_google_sheet_report: async (report = {}) => getWorkspaceClient().createSpreadsheetReport(report),
+      create_google_slides_report: async (report = {}) => getWorkspaceClient().createSlideReport(report)
     }
   };
 }

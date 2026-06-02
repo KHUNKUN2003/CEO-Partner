@@ -47,6 +47,19 @@ test("Google Workspace client prefers OAuth refresh token when configured", asyn
         }
       };
     },
+    sheets: () => ({
+      spreadsheets: {
+        create: async () => ({ data: { spreadsheetId: "sheet-oauth", sheets: [{ properties: { sheetId: 123 } }] } }),
+        values: { update: async () => ({}) },
+        batchUpdate: async () => ({})
+      }
+    }),
+    slides: () => ({
+      presentations: {
+        create: async () => ({ data: { presentationId: "slides-oauth" } }),
+        batchUpdate: async () => ({})
+      }
+    }),
     drive: () => ({
       files: {
         create: async () => ({ data: { id: "doc-oauth" } })
@@ -110,6 +123,19 @@ test("Google Workspace client creates a document and shares it when configured",
         create: async ({ fileId, requestBody }) => calls.push(["drive.share", fileId, requestBody.emailAddress])
       }
     }),
+    sheets: () => ({
+      spreadsheets: {
+        create: async () => ({ data: { spreadsheetId: "sheet-1", sheets: [{ properties: { sheetId: 123 } }] } }),
+        values: { update: async () => ({}) },
+        batchUpdate: async () => ({})
+      }
+    }),
+    slides: () => ({
+      presentations: {
+        create: async () => ({ data: { presentationId: "slides-1" } }),
+        batchUpdate: async () => ({})
+      }
+    }),
     calendar: () => ({
       events: {
         insert: async () => ({ data: {} })
@@ -138,6 +164,8 @@ test("Google Workspace client creates a calendar event with default duration", a
     },
     docs: () => ({ documents: {} }),
     drive: () => ({ files: {}, permissions: {} }),
+    sheets: () => ({ spreadsheets: {} }),
+    slides: () => ({ presentations: {} }),
     calendar: () => ({
       events: {
         insert: async (request) => {
@@ -174,7 +202,9 @@ test("Google Workspace tools expose document and calendar handlers", async () =>
   const declarations = buildCeoPartnerFunctionDeclarations();
   const workspaceClient = {
     createDocument: async ({ title }) => ({ documentId: "doc-1", title }),
-    createCalendarEvent: async ({ summary }) => ({ eventId: "event-1", summary })
+    createCalendarEvent: async ({ summary }) => ({ eventId: "event-1", summary }),
+    createSpreadsheetReport: async ({ title }) => ({ spreadsheetId: "sheet-1", title }),
+    createSlideReport: async ({ title }) => ({ presentationId: "slides-1", title })
   };
   const tools = createCeoPartnerTools({
     config: workspaceConfig(),
@@ -184,6 +214,8 @@ test("Google Workspace tools expose document and calendar handlers", async () =>
 
   assert.ok(declarations.some((declaration) => declaration.name === "create_google_doc"));
   assert.ok(declarations.some((declaration) => declaration.name === "create_calendar_event"));
+  assert.ok(declarations.some((declaration) => declaration.name === "create_google_sheet_report"));
+  assert.ok(declarations.some((declaration) => declaration.name === "create_google_slides_report"));
   assert.deepEqual(await tools.handlers.create_google_doc({ title: "Doc", content: "Body" }), {
     documentId: "doc-1",
     title: "Doc"
@@ -192,6 +224,101 @@ test("Google Workspace tools expose document and calendar handlers", async () =>
     eventId: "event-1",
     summary: "Meeting"
   });
+  assert.deepEqual(await tools.handlers.create_google_sheet_report({ title: "Sheet", headers: ["A"], rows: [["B"]] }), {
+    spreadsheetId: "sheet-1",
+    title: "Sheet"
+  });
+  assert.deepEqual(await tools.handlers.create_google_slides_report({ title: "Slides", slides: [] }), {
+    presentationId: "slides-1",
+    title: "Slides"
+  });
+});
+
+test("Google Workspace client creates a spreadsheet report with a chart", async () => {
+  const calls = [];
+  const googleApi = {
+    auth: { JWT: class {} },
+    docs: () => ({ documents: {} }),
+    calendar: () => ({ events: {} }),
+    drive: () => ({
+      files: { update: async ({ fileId, addParents }) => calls.push(["drive.update", fileId, addParents]) },
+      permissions: { create: async ({ fileId }) => calls.push(["drive.share", fileId]) }
+    }),
+    sheets: () => ({
+      spreadsheets: {
+        create: async ({ requestBody }) => {
+          calls.push(["sheets.create", requestBody.properties.title]);
+          return { data: { spreadsheetId: "sheet-123", sheets: [{ properties: { sheetId: 123 } }] } };
+        },
+        values: {
+          update: async ({ spreadsheetId, range, requestBody }) => {
+            calls.push(["sheets.values.update", spreadsheetId, range, requestBody.values.length]);
+          }
+        },
+        batchUpdate: async ({ spreadsheetId, requestBody }) => {
+          calls.push(["sheets.batchUpdate", spreadsheetId, requestBody.requests.some((request) => request.addChart)]);
+        }
+      }
+    }),
+    slides: () => ({ presentations: {} })
+  };
+  const client = createGoogleWorkspaceClient({ config: workspaceConfig(), googleApi });
+  const result = await client.createSpreadsheetReport({
+    title: "Ad Report",
+    headers: ["Day", "Leads"],
+    rows: [["Mon", 10], ["Tue", 12]],
+    chartType: "COLUMN"
+  });
+
+  assert.equal(result.spreadsheetId, "sheet-123");
+  assert.equal(result.chartCreated, true);
+  assert.deepEqual(calls, [
+    ["sheets.create", "Ad Report"],
+    ["sheets.values.update", "sheet-123", "Report!A1:B3", 3],
+    ["sheets.batchUpdate", "sheet-123", true],
+    ["drive.update", "sheet-123", "folder-1"],
+    ["drive.share", "sheet-123"]
+  ]);
+});
+
+test("Google Workspace client creates a slide report", async () => {
+  const calls = [];
+  const googleApi = {
+    auth: { JWT: class {} },
+    docs: () => ({ documents: {} }),
+    calendar: () => ({ events: {} }),
+    drive: () => ({
+      files: { update: async ({ fileId, addParents }) => calls.push(["drive.update", fileId, addParents]) },
+      permissions: { create: async ({ fileId }) => calls.push(["drive.share", fileId]) }
+    }),
+    sheets: () => ({ spreadsheets: {} }),
+    slides: () => ({
+      presentations: {
+        create: async ({ requestBody }) => {
+          calls.push(["slides.create", requestBody.title]);
+          return { data: { presentationId: "slides-123" } };
+        },
+        batchUpdate: async ({ presentationId, requestBody }) => {
+          calls.push(["slides.batchUpdate", presentationId, requestBody.requests.length]);
+        }
+      }
+    })
+  };
+  const client = createGoogleWorkspaceClient({ config: workspaceConfig(), googleApi });
+  const result = await client.createSlideReport({
+    title: "Weekly Report",
+    subtitle: "CEO Partner",
+    slides: [{ title: "Actions", bullets: ["Reply inbox", "Post EV content"] }]
+  });
+
+  assert.equal(result.presentationId, "slides-123");
+  assert.equal(result.slideCount, 2);
+  assert.deepEqual(calls, [
+    ["slides.create", "Weekly Report"],
+    ["slides.batchUpdate", "slides-123", 10],
+    ["drive.update", "slides-123", "folder-1"],
+    ["drive.share", "slides-123"]
+  ]);
 });
 
 test("Google Workspace client explains missing credentials", () => {
