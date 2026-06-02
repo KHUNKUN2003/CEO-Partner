@@ -8,6 +8,12 @@ const DEFAULTS = {
   GOOGLE_CONTEXT_CACHE: "true",
   GOOGLE_CONTEXT_CACHE_MIN_CHARS: "4000",
   GOOGLE_CONTEXT_CACHE_TTL_SECONDS: "3600",
+  GOOGLE_CALENDAR_ID: "primary",
+  GOOGLE_DOCS_FOLDER_ID: "",
+  GOOGLE_IMPERSONATED_USER: "",
+  GOOGLE_SERVICE_ACCOUNT_EMAIL: "",
+  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: "",
+  GOOGLE_WORKSPACE_SHARE_EMAIL: "",
   GOOGLE_SEARCH_GROUNDING: "true",
   META_CONTENT_MAX_ITEMS: "5000",
   META_GRAPH_VERSION: "v24.0",
@@ -57,7 +63,15 @@ export function loadConfig(env = process.env) {
       codeExecution: valueFrom(env, "GOOGLE_CODE_EXECUTION").toLowerCase() !== "false",
       contextCache: valueFrom(env, "GOOGLE_CONTEXT_CACHE").toLowerCase() !== "false",
       contextCacheTtlSeconds: Number(valueFrom(env, "GOOGLE_CONTEXT_CACHE_TTL_SECONDS")),
-      contextCacheMinChars: Number(valueFrom(env, "GOOGLE_CONTEXT_CACHE_MIN_CHARS"))
+      contextCacheMinChars: Number(valueFrom(env, "GOOGLE_CONTEXT_CACHE_MIN_CHARS")),
+      workspace: {
+        serviceAccountEmail: valueFrom(env, "GOOGLE_SERVICE_ACCOUNT_EMAIL"),
+        serviceAccountPrivateKey: valueFrom(env, "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"),
+        impersonatedUser: valueFrom(env, "GOOGLE_IMPERSONATED_USER"),
+        calendarId: valueFrom(env, "GOOGLE_CALENDAR_ID"),
+        docsFolderId: valueFrom(env, "GOOGLE_DOCS_FOLDER_ID"),
+        shareEmail: valueFrom(env, "GOOGLE_WORKSPACE_SHARE_EMAIL")
+      }
     },
     line: {
       channelSecret: valueFrom(env, "LINE_CHANNEL_SECRET"),

@@ -12,6 +12,7 @@ CEO Partner is a Node.js backend automation service for a business owner. It fet
 - Enables Gemini Google Search grounding so current web information can support answers and sources can be appended when Gemini returns grounding metadata.
 - Enables Gemini Code Execution for daily report calculations when useful.
 - Uses Gemini explicit context caching for reusable LINE chat business/Meta reference data without limiting the chatbot's conversation topics.
+- Lets the LINE chatbot create Google Docs and Google Calendar events through Gemini Function Calling when Google Workspace credentials are configured.
 - Logs the first LINE `userId`, `groupId`, or `roomId` that messages the bot so it can be used as `LINE_TARGET_ID`.
 
 ## Setup
@@ -38,6 +39,12 @@ GOOGLE_CODE_EXECUTION=true
 GOOGLE_CONTEXT_CACHE=true
 GOOGLE_CONTEXT_CACHE_TTL_SECONDS=3600
 GOOGLE_CONTEXT_CACHE_MIN_CHARS=4000
+GOOGLE_SERVICE_ACCOUNT_EMAIL=
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=
+GOOGLE_IMPERSONATED_USER=
+GOOGLE_CALENDAR_ID=primary
+GOOGLE_DOCS_FOLDER_ID=
+GOOGLE_WORKSPACE_SHARE_EMAIL=
 LINE_CHANNEL_SECRET=
 LINE_CHANNEL_ACCESS_TOKEN=
 LINE_TARGET_ID=

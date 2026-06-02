@@ -18,6 +18,19 @@ const PROCESSING_FALLBACK_TEXT = "CEO Partner กำลังประมวล�
 const LINE_LOADING_SECONDS = 60;
 const LINE_LOADING_RENEWAL_INTERVAL_MS = 45000;
 
+function formatCurrentDateTime(timezone) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone || "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).format(new Date());
+}
+
 function rawBodySaver(req, _res, buffer) {
   req.rawBody = buffer.toString("utf8");
 }
@@ -122,6 +135,7 @@ async function handleLineEvent({
       getFreshChatSnapshot({ config, storage, fetchMetaSnapshot, getDateRange })
     ]);
     const aiTools = createCeoPartnerTools({
+      config,
       storage,
       getFreshSnapshot: () => getFreshChatSnapshot({ config, storage, fetchMetaSnapshot, getDateRange })
     });
@@ -129,7 +143,8 @@ async function handleLineEvent({
       latestReport,
       latestSnapshot,
       message: event.message.text,
-      includeContext: !config.google.contextCache
+      includeContext: !config.google.contextCache,
+      currentDateTime: `${formatCurrentDateTime(config.timezone)} ${config.timezone}`
     });
     const cacheContext = config.google.contextCache
       ? {

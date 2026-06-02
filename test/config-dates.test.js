@@ -32,6 +32,8 @@ test("config accepts required values and applies defaults", () => {
   assert.equal(config.google.contextCache, true);
   assert.equal(config.google.contextCacheTtlSeconds, 3600);
   assert.equal(config.google.contextCacheMinChars, 4000);
+  assert.equal(config.google.workspace.calendarId, "primary");
+  assert.equal(config.google.workspace.serviceAccountEmail, "");
 });
 
 test("Bangkok yesterday returns a stable local date", () => {
