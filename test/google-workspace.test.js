@@ -32,10 +32,6 @@ test("Google Workspace client creates a document and shares it when configured",
     },
     docs: () => ({
       documents: {
-        create: async ({ requestBody }) => {
-          calls.push(["docs.create", requestBody.title]);
-          return { data: { documentId: "doc-123" } };
-        },
         batchUpdate: async ({ documentId, requestBody }) => {
           calls.push(["docs.batchUpdate", documentId, requestBody.requests[0].insertText.text]);
         }
@@ -43,6 +39,10 @@ test("Google Workspace client creates a document and shares it when configured",
     }),
     drive: () => ({
       files: {
+        create: async ({ requestBody }) => {
+          calls.push(["drive.create", requestBody.name, requestBody.mimeType, requestBody.parents[0]]);
+          return { data: { id: "doc-123" } };
+        },
         update: async ({ fileId, addParents }) => calls.push(["drive.update", fileId, addParents])
       },
       permissions: {
@@ -63,9 +63,8 @@ test("Google Workspace client creates a document and shares it when configured",
   assert.equal(result.url, "https://docs.google.com/document/d/doc-123/edit");
   assert.deepEqual(calls, [
     ["auth", "service@example.iam.gserviceaccount.com", true],
-    ["docs.create", "Proposal"],
+    ["drive.create", "Proposal", "application/vnd.google-apps.document", "folder-1"],
     ["docs.batchUpdate", "doc-123", "Hello\n"],
-    ["drive.update", "doc-123", "folder-1"],
     ["drive.share", "doc-123", "owner@example.com"]
   ]);
 });

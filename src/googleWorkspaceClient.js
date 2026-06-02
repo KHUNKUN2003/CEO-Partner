@@ -49,6 +49,22 @@ async function moveDocumentToFolder({ drive, fileId, folderId }) {
   });
 }
 
+async function createDocumentFile({ drive, title, folderId }) {
+  const createResponse = await drive.files.create({
+    requestBody: {
+      name: title,
+      mimeType: "application/vnd.google-apps.document",
+      ...(folderId ? { parents: [folderId] } : {})
+    },
+    fields: "id,name"
+  });
+  const documentId = createResponse.data.id;
+  if (!documentId) {
+    throw new Error("Google Drive API did not return a document id.");
+  }
+  return documentId;
+}
+
 async function shareDocument({ drive, fileId, email }) {
   if (!email) {
     return;
@@ -77,13 +93,7 @@ export function createGoogleWorkspaceClient({ config, googleApi = google } = {})
         throw new Error("Document title is required.");
       }
 
-      const createResponse = await docs.documents.create({
-        requestBody: { title }
-      });
-      const documentId = createResponse.data.documentId;
-      if (!documentId) {
-        throw new Error("Google Docs API did not return documentId.");
-      }
+      const documentId = await createDocumentFile({ drive, title, folderId: workspace.docsFolderId });
 
       const trimmedContent = String(content || "").trim();
       if (trimmedContent) {
@@ -102,7 +112,6 @@ export function createGoogleWorkspaceClient({ config, googleApi = google } = {})
         });
       }
 
-      await moveDocumentToFolder({ drive, fileId: documentId, folderId: workspace.docsFolderId });
       await shareDocument({ drive, fileId: documentId, email: workspace.shareEmail });
 
       return {
