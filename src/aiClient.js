@@ -137,8 +137,11 @@ function normalizeModelName(model) {
   return model.startsWith("models/") ? model : `models/${model}`;
 }
 
-function hashCacheInput({ model, text }) {
-  return crypto.createHash("sha256").update(`${model}\n${text}`).digest("hex");
+function hashCacheInput({ model, text, tools, toolConfig }) {
+  return crypto
+    .createHash("sha256")
+    .update(`${model}\n${text}\n${JSON.stringify(tools || [])}\n${JSON.stringify(toolConfig || {})}`)
+    .digest("hex");
 }
 
 function buildPromptWithCacheContext({ prompt, cacheContext }) {
@@ -164,7 +167,9 @@ async function createGeminiCache({ apiKey, model, cacheContext, fetchImpl }) {
           parts: [{ text: cacheContext.text }]
         }
       ],
-      ttl: `${cacheContext.ttlSeconds}s`
+      ttl: `${cacheContext.ttlSeconds}s`,
+      ...(cacheContext.tools?.length ? { tools: cacheContext.tools } : {}),
+      ...(cacheContext.toolConfig ? { tool_config: cacheContext.toolConfig } : {})
     })
   });
   const body = await response.json();
@@ -190,7 +195,12 @@ async function getCachedContentName({ apiKey, model, cacheContext, fetchImpl }) 
   }
 
   const ttlSeconds = Math.max(Number(cacheContext.ttlSeconds || 3600), 60);
-  const key = hashCacheInput({ model, text: cacheContext.text });
+  const key = hashCacheInput({
+    model,
+    text: cacheContext.text,
+    tools: cacheContext.tools,
+    toolConfig: cacheContext.toolConfig
+  });
   const existing = contextCacheStore.get(key);
   const now = Date.now();
   if (existing && existing.expiresAt > now + 5000) {
@@ -222,11 +232,21 @@ export async function generateText({
   cacheContext,
   fetchImpl = fetch
 }) {
+  const cacheTools = buildTools({ enableGoogleSearch, enableCodeExecution, functionDeclarations });
+  const cacheToolConfig =
+    (enableGoogleSearch || enableCodeExecution) && functionDeclarations.length
+      ? { include_server_side_tool_invocations: true }
+      : undefined;
   let cachedContent = "";
   let promptForRequest = prompt;
   if (cacheContext?.text) {
     try {
-      cachedContent = await getCachedContentName({ apiKey, model, cacheContext, fetchImpl });
+      cachedContent = await getCachedContentName({
+        apiKey,
+        model,
+        cacheContext: { ...cacheContext, tools: cacheTools, toolConfig: cacheToolConfig },
+        fetchImpl
+      });
     } catch (error) {
       console.error(`Gemini context cache unavailable, using inline context: ${error.message}`);
     }
@@ -236,9 +256,9 @@ export async function generateText({
   }
 
   const request = buildGeminiRequest(promptForRequest, {
-    enableGoogleSearch,
-    enableCodeExecution,
-    functionDeclarations,
+    enableGoogleSearch: cachedContent ? false : enableGoogleSearch,
+    enableCodeExecution: cachedContent ? false : enableCodeExecution,
+    functionDeclarations: cachedContent ? [] : functionDeclarations,
     responseSchema,
     cachedContent
   });

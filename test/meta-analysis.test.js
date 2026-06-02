@@ -378,6 +378,42 @@ test("Gemini context caching creates a cache and uses it for generation", async 
   assert.equal(requests[1].body.contents[0].parts[0].text, "What is the trend?");
 });
 
+test("Gemini context caching stores tools on cached content instead of generation request", async () => {
+  const requests = [];
+  const answer = await generateText({
+    apiKey: "key",
+    model: "gemini-3.5-flash",
+    prompt: "What is the inbox trend?",
+    enableGoogleSearch: true,
+    functionDeclarations: buildCeoPartnerFunctionDeclarations(),
+    functionHandlers: {
+      get_latest_meta_snapshot: async () => ({ inbox: { totalConversations: 1 } })
+    },
+    cacheContext: {
+      enabled: true,
+      text: "Reusable business context with tools ".repeat(250),
+      ttlSeconds: 300,
+      minChars: 100
+    },
+    fetchImpl: async (url, options) => {
+      const body = JSON.parse(options.body);
+      requests.push({ path: new URL(url).pathname, body });
+      if (new URL(url).pathname.endsWith("/cachedContents")) {
+        return Response.json({ name: "cachedContents/cache-with-tools" });
+      }
+      return Response.json({ candidates: [{ content: { parts: [{ text: "tool cached answer" }] } }] });
+    }
+  });
+
+  assert.equal(answer, "tool cached answer");
+  assert.equal(requests[0].body.tools[0].google_search.constructor, Object);
+  assert.equal(requests[0].body.tools[1].function_declarations[0].name, "get_latest_meta_snapshot");
+  assert.equal(requests[0].body.tool_config.include_server_side_tool_invocations, true);
+  assert.equal(requests[1].body.cachedContent, "cachedContents/cache-with-tools");
+  assert.equal(requests[1].body.tools, undefined);
+  assert.equal(requests[1].body.tool_config, undefined);
+});
+
 test("Gemini context caching falls back to inline context when cache creation fails", async () => {
   const requests = [];
   const answer = await generateText({
