@@ -29,6 +29,9 @@ test("config accepts required values and applies defaults", () => {
   assert.equal(config.google.model, "gemini-3.5-flash");
   assert.equal(config.google.searchGrounding, true);
   assert.equal(config.google.codeExecution, true);
+  assert.equal(config.google.contextCache, true);
+  assert.equal(config.google.contextCacheTtlSeconds, 3600);
+  assert.equal(config.google.contextCacheMinChars, 4000);
 });
 
 test("Bangkok yesterday returns a stable local date", () => {

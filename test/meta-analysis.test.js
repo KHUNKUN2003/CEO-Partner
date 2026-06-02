@@ -13,6 +13,7 @@ import {
   fetchMetaSnapshot
 } from "../src/metaClient.js";
 import {
+  buildChatContext,
   buildChatPrompt,
   buildDailyReportPrompt,
   buildDailyReportSchema,
@@ -321,6 +322,88 @@ test("Gemini request body can request structured JSON output", () => {
 
   assert.equal(body.generationConfig.response_mime_type, "application/json");
   assert.equal(body.generationConfig.response_schema.required[0], "summary");
+});
+
+test("Gemini request body can reference cached content", () => {
+  const body = buildGeminiRequest("hello", { cachedContent: "cachedContents/abc" });
+
+  assert.equal(body.cachedContent, "cachedContents/abc");
+  assert.equal(body.contents[0].parts[0].text, "hello");
+});
+
+test("chat context can be separated from the unrestricted chat prompt", () => {
+  const context = buildChatContext({
+    latestReport: "Yesterday report",
+    latestSnapshot: { page: { name: "Fulltank Garage" } }
+  });
+  const prompt = buildChatPrompt({
+    latestReport: "Yesterday report",
+    latestSnapshot: { page: { name: "Fulltank Garage" } },
+    message: "Explain black holes",
+    includeContext: false
+  });
+
+  assert.match(context, /Fulltank Garage/);
+  assert.match(prompt, /general-purpose Gemini chatbot/i);
+  assert.match(prompt, /answer any topic/i);
+  assert.doesNotMatch(prompt, /Yesterday report/);
+});
+
+test("Gemini context caching creates a cache and uses it for generation", async () => {
+  const requests = [];
+  const answer = await generateText({
+    apiKey: "key",
+    model: "gemini-3.5-flash",
+    prompt: "What is the trend?",
+    cacheContext: {
+      enabled: true,
+      text: "Reusable business context ".repeat(250),
+      ttlSeconds: 300,
+      minChars: 100
+    },
+    fetchImpl: async (url, options) => {
+      const body = JSON.parse(options.body);
+      requests.push({ path: new URL(url).pathname, body });
+      if (new URL(url).pathname.endsWith("/cachedContents")) {
+        return Response.json({ name: "cachedContents/cache-1" });
+      }
+      return Response.json({ candidates: [{ content: { parts: [{ text: "cached answer" }] } }] });
+    }
+  });
+
+  assert.equal(answer, "cached answer");
+  assert.equal(requests[0].body.model, "models/gemini-3.5-flash");
+  assert.equal(requests[0].body.ttl, "300s");
+  assert.equal(requests[1].body.cachedContent, "cachedContents/cache-1");
+  assert.equal(requests[1].body.contents[0].parts[0].text, "What is the trend?");
+});
+
+test("Gemini context caching falls back to inline context when cache creation fails", async () => {
+  const requests = [];
+  const answer = await generateText({
+    apiKey: "key",
+    model: "gemini-3.5-flash",
+    prompt: "What is the trend?",
+    cacheContext: {
+      enabled: true,
+      text: "Reusable fallback business context ".repeat(250),
+      ttlSeconds: 300,
+      minChars: 100
+    },
+    fetchImpl: async (url, options) => {
+      const body = JSON.parse(options.body);
+      requests.push({ path: new URL(url).pathname, body });
+      if (new URL(url).pathname.endsWith("/cachedContents")) {
+        return Response.json({ error: { message: "too short" } }, { status: 400 });
+      }
+      return Response.json({ candidates: [{ content: { parts: [{ text: "fallback answer" }] } }] });
+    }
+  });
+
+  assert.equal(answer, "fallback answer");
+  assert.equal(requests.length, 2);
+  assert.match(requests[1].body.contents[0].parts[0].text, /Reusable fallback business context/);
+  assert.doesNotMatch(JSON.stringify(requests[1].body), /cachedContents\/cache/);
 });
 
 test("Gemini function calling executes tools and returns final text", async () => {

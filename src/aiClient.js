@@ -1,3 +1,7 @@
+import crypto from "node:crypto";
+
+const contextCacheStore = new Map();
+
 function buildTools({ enableGoogleSearch, enableCodeExecution, functionDeclarations }) {
   const tools = [];
   if (enableGoogleSearch) {
@@ -28,7 +32,7 @@ function buildGenerationConfig({ responseSchema } = {}) {
 
 export function buildGeminiRequest(
   prompt,
-  { enableGoogleSearch = false, enableCodeExecution = false, functionDeclarations = [], responseSchema } = {}
+  { enableGoogleSearch = false, enableCodeExecution = false, functionDeclarations = [], responseSchema, cachedContent } = {}
 ) {
   const body = {
     contents: [
@@ -39,6 +43,10 @@ export function buildGeminiRequest(
     ],
     generationConfig: buildGenerationConfig({ responseSchema })
   };
+
+  if (cachedContent) {
+    body.cachedContent = cachedContent;
+  }
 
   const tools = buildTools({ enableGoogleSearch, enableCodeExecution, functionDeclarations });
   if (tools.length) {
@@ -125,6 +133,83 @@ async function postGemini({ apiKey, model, requestBody, fetchImpl }) {
   return body;
 }
 
+function normalizeModelName(model) {
+  return model.startsWith("models/") ? model : `models/${model}`;
+}
+
+function hashCacheInput({ model, text }) {
+  return crypto.createHash("sha256").update(`${model}\n${text}`).digest("hex");
+}
+
+function buildPromptWithCacheContext({ prompt, cacheContext }) {
+  if (!cacheContext?.text) {
+    return prompt;
+  }
+  return [cacheContext.text, "", prompt].join("\n");
+}
+
+async function createGeminiCache({ apiKey, model, cacheContext, fetchImpl }) {
+  const url = new URL("https://generativelanguage.googleapis.com/v1beta/cachedContents");
+  url.searchParams.set("key", apiKey);
+
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: normalizeModelName(model),
+      displayName: cacheContext.displayName || "CEO Partner context",
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: cacheContext.text }]
+        }
+      ],
+      ttl: `${cacheContext.ttlSeconds}s`
+    })
+  });
+  const body = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`Google AI cache failed: ${response.status} ${JSON.stringify(body)}`);
+  }
+  if (!body.name) {
+    throw new Error("Google AI cache response did not include a cache name");
+  }
+
+  return body.name;
+}
+
+async function getCachedContentName({ apiKey, model, cacheContext, fetchImpl }) {
+  if (!cacheContext?.enabled || !cacheContext.text) {
+    return "";
+  }
+
+  const minChars = Math.max(Number(cacheContext.minChars || 0), 0);
+  if (cacheContext.text.length < minChars) {
+    return "";
+  }
+
+  const ttlSeconds = Math.max(Number(cacheContext.ttlSeconds || 3600), 60);
+  const key = hashCacheInput({ model, text: cacheContext.text });
+  const existing = contextCacheStore.get(key);
+  const now = Date.now();
+  if (existing && existing.expiresAt > now + 5000) {
+    return existing.name;
+  }
+
+  const name = await createGeminiCache({
+    apiKey,
+    model,
+    cacheContext: { ...cacheContext, ttlSeconds },
+    fetchImpl
+  });
+  contextCacheStore.set(key, {
+    name,
+    expiresAt: now + ttlSeconds * 1000
+  });
+  return name;
+}
+
 export async function generateText({
   apiKey,
   model,
@@ -134,15 +219,47 @@ export async function generateText({
   functionDeclarations = [],
   functionHandlers = {},
   responseSchema,
+  cacheContext,
   fetchImpl = fetch
 }) {
-  const request = buildGeminiRequest(prompt, {
+  let cachedContent = "";
+  let promptForRequest = prompt;
+  if (cacheContext?.text) {
+    try {
+      cachedContent = await getCachedContentName({ apiKey, model, cacheContext, fetchImpl });
+    } catch (error) {
+      console.error(`Gemini context cache unavailable, using inline context: ${error.message}`);
+    }
+    if (!cachedContent) {
+      promptForRequest = buildPromptWithCacheContext({ prompt, cacheContext });
+    }
+  }
+
+  const request = buildGeminiRequest(promptForRequest, {
     enableGoogleSearch,
     enableCodeExecution,
     functionDeclarations,
-    responseSchema
+    responseSchema,
+    cachedContent
   });
-  let body = await postGemini({ apiKey, model, requestBody: request, fetchImpl });
+  let body;
+  try {
+    body = await postGemini({ apiKey, model, requestBody: request, fetchImpl });
+  } catch (error) {
+    if (!cachedContent || !cacheContext?.text) {
+      throw error;
+    }
+    console.error(`Gemini cached request failed, retrying with inline context: ${error.message}`);
+    const fallbackRequest = buildGeminiRequest(buildPromptWithCacheContext({ prompt, cacheContext }), {
+      enableGoogleSearch,
+      enableCodeExecution,
+      functionDeclarations,
+      responseSchema
+    });
+    body = await postGemini({ apiKey, model, requestBody: fallbackRequest, fetchImpl });
+    request.contents = fallbackRequest.contents;
+    delete request.cachedContent;
+  }
 
   for (let round = 0; round < 3; round += 1) {
     const functionCalls = extractFunctionCalls(body);

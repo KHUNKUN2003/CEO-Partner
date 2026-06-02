@@ -1,7 +1,7 @@
 import express from "express";
 import http from "node:http";
 
-import { buildChatPrompt } from "./analysis.js";
+import { buildChatContext, buildChatPrompt } from "./analysis.js";
 import { generateText as defaultGenerateText } from "./aiClient.js";
 import { createCeoPartnerTools } from "./aiTools.js";
 import { getBangkokYesterday } from "./dates.js";
@@ -128,15 +128,26 @@ async function handleLineEvent({
     const prompt = buildChatPrompt({
       latestReport,
       latestSnapshot,
-      message: event.message.text
+      message: event.message.text,
+      includeContext: !config.google.contextCache
     });
+    const cacheContext = config.google.contextCache
+      ? {
+          enabled: true,
+          displayName: "CEO Partner LINE chat context",
+          text: buildChatContext({ latestReport, latestSnapshot }),
+          ttlSeconds: config.google.contextCacheTtlSeconds,
+          minChars: config.google.contextCacheMinChars
+        }
+      : undefined;
     const answer = await generateText({
       apiKey: config.google.apiKey,
       model: config.google.model,
       prompt,
       enableGoogleSearch: config.google.searchGrounding,
       functionDeclarations: aiTools.declarations,
-      functionHandlers: aiTools.handlers
+      functionHandlers: aiTools.handlers,
+      cacheContext
     });
 
     const pushTarget = source?.sourceId || config.line.targetId || (await storage.getDefaultLineTarget?.());
