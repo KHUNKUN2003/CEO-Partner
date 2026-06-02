@@ -10,11 +10,20 @@ function normalizePrivateKey(privateKey = "") {
   return privateKey.replace(/\\n/g, "\n");
 }
 
+export { GOOGLE_WORKSPACE_SCOPES };
+
+function hasOAuthConfig(workspace = {}) {
+  return workspace.oauthClientId && workspace.oauthClientSecret && workspace.oauthRedirectUri && workspace.oauthRefreshToken;
+}
+
 function requireWorkspaceConfig(config) {
   const workspace = config.google?.workspace || {};
+  if (hasOAuthConfig(workspace)) {
+    return workspace;
+  }
   if (!workspace.serviceAccountEmail || !workspace.serviceAccountPrivateKey) {
     throw new Error(
-      "Google Workspace is not configured. Set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY."
+      "Google Workspace is not configured. Set Google OAuth refresh token or service account credentials."
     );
   }
   return workspace;
@@ -22,6 +31,16 @@ function requireWorkspaceConfig(config) {
 
 function createAuth(config, googleApi = google) {
   const workspace = requireWorkspaceConfig(config);
+  if (hasOAuthConfig(workspace)) {
+    const auth = new googleApi.auth.OAuth2(
+      workspace.oauthClientId,
+      workspace.oauthClientSecret,
+      workspace.oauthRedirectUri
+    );
+    auth.setCredentials({ refresh_token: workspace.oauthRefreshToken });
+    return auth;
+  }
+
   return new googleApi.auth.JWT({
     email: workspace.serviceAccountEmail,
     key: normalizePrivateKey(workspace.serviceAccountPrivateKey),

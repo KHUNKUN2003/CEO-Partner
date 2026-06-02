@@ -34,6 +34,8 @@ test("config accepts required values and applies defaults", () => {
   assert.equal(config.google.contextCacheMinChars, 4000);
   assert.equal(config.google.workspace.calendarId, "primary");
   assert.equal(config.google.workspace.serviceAccountEmail, "");
+  assert.equal(config.google.workspace.oauthRedirectUri, "http://127.0.0.1:53682/oauth2callback");
+  assert.equal(config.google.workspace.oauthRefreshToken, "");
 });
 
 test("Bangkok yesterday returns a stable local date", () => {

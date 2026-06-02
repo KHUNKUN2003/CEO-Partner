@@ -20,6 +20,67 @@ function workspaceConfig(overrides = {}) {
   };
 }
 
+test("Google Workspace client prefers OAuth refresh token when configured", async () => {
+  const calls = [];
+  const googleApi = {
+    auth: {
+      OAuth2: class {
+        constructor(clientId, clientSecret, redirectUri) {
+          calls.push(["oauth", clientId, Boolean(clientSecret), redirectUri]);
+        }
+
+        setCredentials(credentials) {
+          calls.push(["credentials", credentials.refresh_token]);
+        }
+      },
+      JWT: class {
+        constructor() {
+          calls.push(["jwt"]);
+        }
+      }
+    },
+    docs: ({ auth }) => {
+      calls.push(["docs", Boolean(auth)]);
+      return {
+        documents: {
+          batchUpdate: async () => {}
+        }
+      };
+    },
+    drive: () => ({
+      files: {
+        create: async () => ({ data: { id: "doc-oauth" } })
+      },
+      permissions: {
+        create: async () => {}
+      }
+    }),
+    calendar: () => ({
+      events: {
+        insert: async () => ({ data: {} })
+      }
+    })
+  };
+
+  const client = createGoogleWorkspaceClient({
+    config: workspaceConfig({
+      oauthClientId: "client-id",
+      oauthClientSecret: "client-secret",
+      oauthRedirectUri: "http://127.0.0.1:53682/oauth2callback",
+      oauthRefreshToken: "refresh-token"
+    }),
+    googleApi
+  });
+  await client.createDocument({ title: "OAuth Doc", content: "" });
+
+  assert.deepEqual(calls.slice(0, 3), [
+    ["oauth", "client-id", true, "http://127.0.0.1:53682/oauth2callback"],
+    ["credentials", "refresh-token"],
+    ["docs", true]
+  ]);
+  assert.ok(!calls.some(([name]) => name === "jwt"));
+});
+
 test("Google Workspace client creates a document and shares it when configured", async () => {
   const calls = [];
   const googleApi = {
