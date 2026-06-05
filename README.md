@@ -12,7 +12,8 @@ CEO Partner is a Node.js backend automation service for a business owner. It fet
 - Enables Gemini Google Search grounding so current web information can support answers and sources can be appended when Gemini returns grounding metadata.
 - Enables Gemini Code Execution for daily report calculations when useful.
 - Uses Gemini explicit context caching for reusable LINE chat business/Meta reference data without limiting the chatbot's conversation topics.
-- Lets the LINE chatbot create Google Docs and Google Calendar events through Gemini Function Calling when Google Workspace credentials are configured.
+- Lets the LINE chatbot create Google Docs, Google Calendar events, Google Tasks to-dos, Google Sheets charts, and visually designed Google Slides reports through Gemini Function Calling when Google Workspace credentials are configured.
+- Builds presentation reports with PptxGenJS first, then uploads and converts them to native Google Slides so the output uses stronger visual layouts than plain text boxes.
 - Logs the first LINE `userId`, `groupId`, or `roomId` that messages the bot so it can be used as `LINE_TARGET_ID`.
 
 ## Setup
@@ -48,6 +49,7 @@ GOOGLE_OAUTH_REDIRECT_URI=http://127.0.0.1:53682/oauth2callback
 GOOGLE_OAUTH_REFRESH_TOKEN=
 GOOGLE_CALENDAR_ID=primary
 GOOGLE_DOCS_FOLDER_ID=
+GOOGLE_TASKS_LIST_ID=@default
 GOOGLE_WORKSPACE_SHARE_EMAIL=
 LINE_CHANNEL_SECRET=
 LINE_CHANNEL_ACCESS_TOKEN=
@@ -55,6 +57,8 @@ LINE_TARGET_ID=
 ```
 
 Do not commit `.env`. Any token pasted into chat or shared screenshots should be rotated before production use.
+
+If you add Google Tasks after OAuth was already configured, run `npm.cmd run google:auth` again so the refresh token includes the Google Tasks scope.
 
 ## Neon Free Plan
 

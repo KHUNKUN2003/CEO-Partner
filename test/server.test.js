@@ -241,6 +241,50 @@ test("LINE chatbot fetches fresh Meta data before pushing answer", async () => {
   ]);
 });
 
+test("LINE chatbot pushes an error fallback when AI generation fails", async () => {
+  const events = [];
+  const { rawBody, signature } = signedBody({
+    events: [
+      {
+        type: "message",
+        replyToken: "reply-token",
+        source: { type: "user", userId: "U123" },
+        message: { type: "text", text: "report please" }
+      }
+    ]
+  });
+  const app = createApp({
+    config: {
+      line: { channelSecret: "secret", channelAccessToken: "line-token" },
+      google: { apiKey: "google-token", model: "gemini" },
+      meta: { pageId: "page-1", adAccountId: "act_1" }
+    },
+    storage: {
+      saveLineSource: async () => {},
+      getLatestReport: async () => "latest report",
+      getLatestSnapshot: async () => ({ page: { name: "Snapshot" } })
+    },
+    fetchMetaSnapshot: async () => ({ page: { name: "Fresh" }, adInsights: { data: [] } }),
+    generateText: async () => {
+      throw new Error("Gemini failed");
+    },
+    showLoadingAnimation: async () => events.push(["loading"]),
+    pushText: async ({ to, text }) => events.push(["push", to, text])
+  });
+
+  const response = await app.request("/webhook", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-line-signature": signature },
+    body: rawBody
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(events, [
+    ["loading"],
+    ["push", "U123", "CEO Partner AI encountered an error. Please try again in a moment."]
+  ]);
+});
+
 test("LINE webhook also accepts the short /webhook path", async () => {
   const { rawBody, signature } = signedBody({ events: [] });
   const app = createApp({

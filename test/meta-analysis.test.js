@@ -476,6 +476,41 @@ test("Gemini function calling executes tools and returns final text", async () =
   assert.equal(requests[1].contents.at(-1).parts[0].functionResponse.response.inbox.conversations[0].id, "c1");
 });
 
+test("Gemini function calling wraps string tool responses in an object", async () => {
+  const requests = [];
+  const answer = await generateText({
+    apiKey: "key",
+    model: "gemini-3.5-flash",
+    prompt: "latest report",
+    functionDeclarations: buildCeoPartnerFunctionDeclarations(),
+    functionHandlers: {
+      get_latest_business_report: async () => "latest report text"
+    },
+    fetchImpl: async (_url, options) => {
+      const body = JSON.parse(options.body);
+      requests.push(body);
+      if (requests.length === 1) {
+        return Response.json({
+          candidates: [
+            {
+              content: {
+                role: "model",
+                parts: [{ functionCall: { name: "get_latest_business_report", args: {} } }]
+              }
+            }
+          ]
+        });
+      }
+      return Response.json({ candidates: [{ content: { parts: [{ text: "final answer" }] } }] });
+    }
+  });
+
+  assert.equal(answer, "final answer");
+  assert.deepEqual(requests[1].contents.at(-1).parts[0].functionResponse.response, {
+    result: "latest report text"
+  });
+});
+
 test("CEO Partner tools read latest report and filtered Meta snapshot", async () => {
   const tools = createCeoPartnerTools({
     storage: {

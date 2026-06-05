@@ -176,6 +176,16 @@ async function handleLineEvent({
       to: pushTarget,
       text: answer
     });
+  } catch (error) {
+    console.error(error);
+    const pushTarget = source?.sourceId || config.line.targetId || (await storage.getDefaultLineTarget?.());
+    if (pushTarget) {
+      await pushText({
+        channelAccessToken: config.line.channelAccessToken,
+        to: pushTarget,
+        text: "CEO Partner AI encountered an error. Please try again in a moment."
+      });
+    }
   } finally {
     loadingIndicator.stop();
   }

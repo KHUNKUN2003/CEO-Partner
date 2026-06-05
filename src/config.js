@@ -17,6 +17,7 @@ const DEFAULTS = {
   GOOGLE_OAUTH_REFRESH_TOKEN: "",
   GOOGLE_SERVICE_ACCOUNT_EMAIL: "",
   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: "",
+  GOOGLE_TASKS_LIST_ID: "@default",
   GOOGLE_WORKSPACE_SHARE_EMAIL: "",
   GOOGLE_SEARCH_GROUNDING: "true",
   META_CONTENT_MAX_ITEMS: "5000",
@@ -78,6 +79,7 @@ export function loadConfig(env = process.env) {
         oauthRefreshToken: valueFrom(env, "GOOGLE_OAUTH_REFRESH_TOKEN"),
         calendarId: valueFrom(env, "GOOGLE_CALENDAR_ID"),
         docsFolderId: valueFrom(env, "GOOGLE_DOCS_FOLDER_ID"),
+        tasksListId: valueFrom(env, "GOOGLE_TASKS_LIST_ID"),
         shareEmail: valueFrom(env, "GOOGLE_WORKSPACE_SHARE_EMAIL")
       }
     },

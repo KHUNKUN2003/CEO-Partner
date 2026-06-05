@@ -90,9 +90,36 @@ export function buildCeoPartnerFunctionDeclarations() {
       }
     },
     {
+      name: "create_google_task",
+      description:
+        "Create a Google Tasks task only when the user explicitly asks to add a task, to-do, reminder-style action item, follow-up item, or checklist item. Use Calendar instead when the user asks for a meeting or appointment with a start time.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "Task title."
+          },
+          notes: {
+            type: "string",
+            description: "Optional task notes or context."
+          },
+          dueDateTime: {
+            type: "string",
+            description: "Optional task due date as an ISO 8601 date-time string, preferably with timezone offset."
+          },
+          taskListId: {
+            type: "string",
+            description: "Optional Google Tasks task list id. Omit to use the configured default task list."
+          }
+        },
+        required: ["title"]
+      }
+    },
+    {
       name: "create_google_sheet_report",
       description:
-        "Create a Google Sheets report with tabular data and an optional chart when the user asks for a spreadsheet, chart, graph, dashboard table, or visual data report.",
+        "Create a polished Google Sheets report with tabular data and native Google Sheets charts when the user asks for a spreadsheet, chart, graph, dashboard table, or visual data report.",
       parameters: {
         type: "object",
         properties: {
@@ -115,8 +142,8 @@ export function buildCeoPartnerFunctionDeclarations() {
           },
           chartType: {
             type: "string",
-            description: "Basic chart type.",
-            enum: ["COLUMN", "BAR", "LINE", "PIE"]
+            description: "Native Google Sheets chart type. Use COLUMN or BAR for comparisons, LINE for trends, PIE for share/mix.",
+            enum: ["COLUMN", "BAR", "LINE", "AREA", "PIE"]
           },
           chartTitle: {
             type: "string",
@@ -129,7 +156,7 @@ export function buildCeoPartnerFunctionDeclarations() {
     {
       name: "create_google_slides_report",
       description:
-        "Create a Google Slides presentation when the user asks for slides, deck, presentation, pitch, or a visual executive report.",
+        "Create a visually designed Google Slides presentation with executive layouts, KPI cards, chart pages, and action-plan pages when the user asks for slides, deck, presentation, pitch, or a visual executive report.",
       parameters: {
         type: "object",
         properties: {
@@ -143,16 +170,60 @@ export function buildCeoPartnerFunctionDeclarations() {
           },
           slides: {
             type: "array",
-            description: "Presentation slides.",
+            description: "Presentation slides. Prefer a mix of kpi, chart, insight, and action layouts instead of plain text-only slides.",
             items: {
               type: "object",
               properties: {
+                layout: {
+                  type: "string",
+                  description: "Visual layout for the slide.",
+                  enum: ["kpi", "chart", "insight", "action"]
+                },
+                kicker: {
+                  type: "string",
+                  description: "Short section label, such as PERFORMANCE, INBOX, CONTENT, or NEXT MOVES."
+                },
                 title: { type: "string" },
                 bullets: {
                   type: "array",
                   items: { type: "string" }
                 },
-                body: { type: "string" }
+                body: { type: "string" },
+                metrics: {
+                  type: "array",
+                  description: "KPI cards for kpi layout.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      label: { type: "string" },
+                      value: { type: "string" }
+                    }
+                  }
+                },
+                chartData: {
+                  type: "object",
+                  description: "Simple chart data for chart layout.",
+                  properties: {
+                    title: { type: "string" },
+                    categories: {
+                      type: "array",
+                      items: { type: "string" }
+                    },
+                    series: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          name: { type: "string" },
+                          values: {
+                            type: "array",
+                            items: { type: "number" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -197,6 +268,7 @@ export function createCeoPartnerTools({ config, storage, getFreshSnapshot, works
       get_latest_business_report: async () => (await storage.getLatestReport?.()) || "No report has been generated yet.",
       create_google_doc: async ({ title, content } = {}) => getWorkspaceClient().createDocument({ title, content }),
       create_calendar_event: async (event = {}) => getWorkspaceClient().createCalendarEvent(event),
+      create_google_task: async (task = {}) => getWorkspaceClient().createTask(task),
       create_google_sheet_report: async (report = {}) => getWorkspaceClient().createSpreadsheetReport(report),
       create_google_slides_report: async (report = {}) => getWorkspaceClient().createSlideReport(report)
     }

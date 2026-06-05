@@ -69,6 +69,65 @@ function extractFunctionCalls(body) {
   );
 }
 
+function truncateString(value, maxLength = 12000) {
+  if (typeof value !== "string" || value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength)}\n\n[truncated ${value.length - maxLength} characters]`;
+}
+
+function normalizeFunctionResponse(value, depth = 0) {
+  if (depth > 5) {
+    return "[truncated nested object]";
+  }
+  if (value === null || value === undefined) {
+    return { result: null };
+  }
+  if (typeof value === "string") {
+    return { result: truncateString(value) };
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return { result: value };
+  }
+  if (Array.isArray(value)) {
+    return {
+      result: value.slice(0, 50).map((item) => normalizeFunctionValue(item, depth + 1)),
+      truncatedItems: value.length > 50 ? value.length - 50 : 0
+    };
+  }
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .slice(0, 80)
+        .map(([key, nestedValue]) => [key, normalizeFunctionValue(nestedValue, depth + 1)])
+    );
+  }
+  return { result: String(value) };
+}
+
+function normalizeFunctionValue(value, depth = 0) {
+  if (depth > 5) {
+    return "[truncated nested object]";
+  }
+  if (typeof value === "string") {
+    return truncateString(value);
+  }
+  if (value === null || value === undefined || typeof value === "number" || typeof value === "boolean") {
+    return value ?? null;
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, 50).map((item) => normalizeFunctionValue(item, depth + 1));
+  }
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .slice(0, 80)
+        .map(([key, nestedValue]) => [key, normalizeFunctionValue(nestedValue, depth + 1)])
+    );
+  }
+  return String(value);
+}
+
 async function executeFunctionCalls(functionCalls, functionHandlers) {
   return Promise.all(
     functionCalls.map(async (functionCall) => {
@@ -82,7 +141,7 @@ async function executeFunctionCalls(functionCalls, functionHandlers) {
       try {
         return {
           name: functionCall.name,
-          response: await handler(functionCall.args || {})
+          response: normalizeFunctionResponse(await handler(functionCall.args || {}))
         };
       } catch (error) {
         return {
