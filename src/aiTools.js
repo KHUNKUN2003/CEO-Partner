@@ -1,5 +1,6 @@
 import { summarizeMetaSnapshot } from "./analysis.js";
 import { createGoogleWorkspaceClient } from "./googleWorkspaceClient.js";
+import { sendFacebookPageMessage } from "./metaClient.js";
 
 export function buildCeoPartnerFunctionDeclarations() {
   return [
@@ -24,6 +25,38 @@ export function buildCeoPartnerFunctionDeclarations() {
       parameters: {
         type: "object",
         properties: {}
+      }
+    },
+    {
+      name: "send_facebook_page_message",
+      description:
+        "Send a text reply from the Facebook Page to a customer in Messenger only when the owner explicitly asks to send/reply to a Facebook inbox customer. Requires a recipient PSID, or enough inbox context such as conversationId or customerName to resolve the PSID.",
+      parameters: {
+        type: "object",
+        properties: {
+          recipientId: {
+            type: "string",
+            description: "Facebook Page-scoped user ID (PSID) of the customer. Prefer this when available."
+          },
+          conversationId: {
+            type: "string",
+            description: "Optional Facebook conversation/thread id from the latest inbox snapshot."
+          },
+          customerName: {
+            type: "string",
+            description: "Optional customer display name from the latest inbox snapshot, used only to resolve recipientId."
+          },
+          text: {
+            type: "string",
+            description: "The exact Thai or requested-language message text to send to the customer."
+          },
+          messageType: {
+            type: "string",
+            description: "Messenger message type. RESPONSE is for replies inside the normal customer messaging window.",
+            enum: ["RESPONSE", "UPDATE"]
+          }
+        },
+        required: ["text"]
       }
     },
     {
@@ -256,16 +289,71 @@ function pickMetaArea(snapshot, area = "all") {
   return summary;
 }
 
-export function createCeoPartnerTools({ config, storage, getFreshSnapshot, workspaceClient }) {
+function normalizeName(value = "") {
+  return String(value).replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function senderEntries(conversation) {
+  const senders = conversation?.senders?.data || conversation?.senders || [];
+  return Array.isArray(senders) ? senders : [];
+}
+
+function findCustomerRecipientId(snapshot = {}, { recipientId, conversationId, customerName } = {}) {
+  if (recipientId) {
+    return recipientId;
+  }
+
+  const pageId = snapshot.page?.id || snapshot.pageId;
+  const conversations = snapshot.inbox?.conversations || [];
+  const customerNeedle = normalizeName(customerName);
+  const conversation = conversations.find((item) => {
+    if (conversationId && item.id === conversationId) {
+      return true;
+    }
+    if (!customerNeedle) {
+      return false;
+    }
+    return senderEntries(item).some((sender) => normalizeName(sender.name).includes(customerNeedle));
+  });
+
+  if (!conversation) {
+    return "";
+  }
+
+  const sender = senderEntries(conversation).find((entry) => entry.id && entry.id !== pageId);
+  if (sender?.id) {
+    return sender.id;
+  }
+
+  const messages = conversation.messages?.data || [];
+  const messageSender = messages.find((message) => message.from?.id && message.from.id !== pageId);
+  return messageSender?.from?.id || "";
+}
+
+export function createCeoPartnerTools({ config, storage, getFreshSnapshot, workspaceClient, messengerSender = sendFacebookPageMessage }) {
   const getWorkspaceClient = () => workspaceClient || createGoogleWorkspaceClient({ config });
+  const getMetaSnapshot = async () => (await getFreshSnapshot?.()) ?? (await storage.getLatestSnapshot?.()) ?? {};
   return {
     declarations: buildCeoPartnerFunctionDeclarations(),
     handlers: {
       get_latest_meta_snapshot: async ({ area = "all" } = {}) => {
-        const snapshot = (await getFreshSnapshot?.()) ?? (await storage.getLatestSnapshot?.()) ?? {};
+        const snapshot = await getMetaSnapshot();
         return pickMetaArea(snapshot, area);
       },
       get_latest_business_report: async () => (await storage.getLatestReport?.()) || "No report has been generated yet.",
+      send_facebook_page_message: async ({ recipientId, conversationId, customerName, text, messageType = "RESPONSE" } = {}) => {
+        const snapshot = await getMetaSnapshot();
+        const resolvedRecipientId = findCustomerRecipientId(snapshot, { recipientId, conversationId, customerName });
+        if (!resolvedRecipientId) {
+          throw new Error("Could not resolve the Facebook customer recipient ID from the latest inbox data.");
+        }
+        return messengerSender({
+          config,
+          recipientId: resolvedRecipientId,
+          text,
+          messageType
+        });
+      },
       create_google_doc: async ({ title, content } = {}) => getWorkspaceClient().createDocument({ title, content }),
       create_calendar_event: async (event = {}) => getWorkspaceClient().createCalendarEvent(event),
       create_google_task: async (task = {}) => getWorkspaceClient().createTask(task),

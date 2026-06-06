@@ -100,6 +100,12 @@ export function buildPostCommentsUrl({ graphVersion, postId, accessToken, limit 
   return url;
 }
 
+export function buildMessengerSendUrl({ graphVersion, pageId, accessToken }) {
+  const url = new URL(`${META_BASE}/${graphVersion}/${pageId}/messages`);
+  url.searchParams.set("access_token", accessToken);
+  return url;
+}
+
 async function getJson(url, fetchImpl = fetch) {
   const response = await fetchImpl(url);
   const body = await response.json();
@@ -233,6 +239,50 @@ async function fetchPageContent({ config, fetchImpl }) {
     photos,
     videos,
     fetchedAt: new Date().toISOString()
+  };
+}
+
+export async function sendFacebookPageMessage({
+  config,
+  recipientId,
+  text,
+  messageType = "RESPONSE",
+  fetchImpl = fetch
+}) {
+  if (!recipientId) {
+    throw new Error("Facebook recipientId is required.");
+  }
+  if (!text) {
+    throw new Error("Facebook message text is required.");
+  }
+
+  const response = await fetchImpl(
+    buildMessengerSendUrl({
+      graphVersion: config.meta.graphVersion,
+      pageId: config.meta.pageId,
+      accessToken: config.meta.pageAccessToken
+    }),
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message_type: messageType,
+        message: { text }
+      })
+    }
+  );
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(`Meta Messenger send failed: ${response.status} ${JSON.stringify(body)}`);
+  }
+
+  return {
+    recipientId,
+    messageId: body.message_id,
+    recipient: body.recipient_id,
+    messageType,
+    ok: true
   };
 }
 

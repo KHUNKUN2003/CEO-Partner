@@ -270,6 +270,7 @@ test("Google Workspace tools expose document and calendar handlers", async () =>
   assert.ok(declarations.some((declaration) => declaration.name === "create_google_doc"));
   assert.ok(declarations.some((declaration) => declaration.name === "create_calendar_event"));
   assert.ok(declarations.some((declaration) => declaration.name === "create_google_task"));
+  assert.ok(declarations.some((declaration) => declaration.name === "send_facebook_page_message"));
   assert.ok(declarations.some((declaration) => declaration.name === "create_google_sheet_report"));
   assert.ok(declarations.some((declaration) => declaration.name === "create_google_slides_report"));
   assert.deepEqual(await tools.handlers.create_google_doc({ title: "Doc", content: "Body" }), {

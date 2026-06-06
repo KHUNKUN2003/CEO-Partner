@@ -6,11 +6,13 @@ import {
   buildConversationMessagesUrl,
   buildConversationsUrl,
   buildFeedUrl,
+  buildMessengerSendUrl,
   buildPostCommentsUrl,
   buildPhotosUrl,
   buildPageUrl,
   buildVideosUrl,
-  fetchMetaSnapshot
+  fetchMetaSnapshot,
+  sendFacebookPageMessage
 } from "../src/metaClient.js";
 import {
   buildChatContext,
@@ -118,6 +120,45 @@ test("Meta post comments URL requests comment messages", () => {
   assert.equal(url.pathname, "/v24.0/post_1/comments");
   assert.match(url.searchParams.get("fields"), /message/);
   assert.match(url.searchParams.get("fields"), /from/);
+});
+
+test("Meta Messenger send URL targets the page messages endpoint", () => {
+  const url = buildMessengerSendUrl({
+    graphVersion: "v24.0",
+    pageId: "731445173377155",
+    accessToken: "page-token"
+  });
+
+  assert.equal(url.pathname, "/v24.0/731445173377155/messages");
+  assert.equal(url.searchParams.get("access_token"), "page-token");
+});
+
+test("Meta Messenger sender posts text to a customer PSID", async () => {
+  let request;
+  const result = await sendFacebookPageMessage({
+    config: {
+      meta: {
+        graphVersion: "v24.0",
+        pageId: "731445173377155",
+        pageAccessToken: "page-token"
+      }
+    },
+    recipientId: "psid-1",
+    text: "Hello",
+    fetchImpl: async (url, options) => {
+      request = { url: String(url), options, body: JSON.parse(options.body) };
+      return Response.json({ recipient_id: "psid-1", message_id: "mid-1" });
+    }
+  });
+
+  assert.match(request.url, /731445173377155\/messages/);
+  assert.equal(request.options.method, "POST");
+  assert.deepEqual(request.body, {
+    recipient: { id: "psid-1" },
+    message_type: "RESPONSE",
+    message: { text: "Hello" }
+  });
+  assert.equal(result.messageId, "mid-1");
 });
 
 test("Meta snapshot includes inbox posts photos and videos", async () => {
@@ -534,6 +575,50 @@ test("CEO Partner tools read latest report and filtered Meta snapshot", async ()
     inbox: { totalConversations: 1, recentConversations: [{ id: "c1", messages: [] }] }
   });
   assert.equal((await tools.handlers.get_latest_meta_snapshot({ area: "content" })).content.totalPosts, 1);
+});
+
+test("CEO Partner tools can send a Facebook message by resolving a customer name", async () => {
+  let sendRequest;
+  const tools = createCeoPartnerTools({
+    config: {
+      meta: {
+        graphVersion: "v24.0",
+        pageId: "page-1",
+        pageAccessToken: "page-token"
+      }
+    },
+    storage: {
+      getLatestSnapshot: async () => ({
+        page: { id: "page-1", name: "Fulltank Garage" },
+        inbox: {
+          conversations: [
+            {
+              id: "t_1",
+              senders: {
+                data: [
+                  { id: "page-1", name: "Fulltank Garage" },
+                  { id: "psid-1", name: "Chananun Thongplengrasmee" }
+                ]
+              }
+            }
+          ]
+        }
+      })
+    },
+    messengerSender: async (request) => {
+      sendRequest = request;
+      return { ok: true, messageId: "mid-1" };
+    }
+  });
+
+  const result = await tools.handlers.send_facebook_page_message({
+    customerName: "Chananun",
+    text: "ส่งพิกัดร้านให้แล้วนะคะ"
+  });
+
+  assert.equal(sendRequest.recipientId, "psid-1");
+  assert.equal(sendRequest.text, "ส่งพิกัดร้านให้แล้วนะคะ");
+  assert.equal(result.messageId, "mid-1");
 });
 
 test("Meta snapshot summary keeps counts while dropping oversized media payloads", () => {
