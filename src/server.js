@@ -130,17 +130,13 @@ async function handleLineEvent({
   }
 
   try {
-    const [latestReport, latestSnapshot] = await Promise.all([
-      storage.getLatestReport?.() ?? "",
-      getFreshChatSnapshot({ config, storage, fetchMetaSnapshot, getDateRange })
-    ]);
+    const latestSnapshot = await getFreshChatSnapshot({ config, storage, fetchMetaSnapshot, getDateRange });
     const aiTools = createCeoPartnerTools({
       config,
       storage,
       getFreshSnapshot: () => getFreshChatSnapshot({ config, storage, fetchMetaSnapshot, getDateRange })
     });
     const prompt = buildChatPrompt({
-      latestReport,
       latestSnapshot,
       message: event.message.text,
       includeContext: !config.google.contextCache,
@@ -150,7 +146,7 @@ async function handleLineEvent({
       ? {
           enabled: true,
           displayName: "CEO Partner LINE chat context",
-          text: buildChatContext({ latestReport, latestSnapshot }),
+          text: buildChatContext({ latestSnapshot }),
           ttlSeconds: config.google.contextCacheTtlSeconds,
           minChars: config.google.contextCacheMinChars
         }

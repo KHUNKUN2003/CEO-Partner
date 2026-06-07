@@ -20,14 +20,6 @@ export function buildCeoPartnerFunctionDeclarations() {
       }
     },
     {
-      name: "get_latest_business_report",
-      description: "Get the latest CEO Partner daily business report stored in Neon.",
-      parameters: {
-        type: "object",
-        properties: {}
-      }
-    },
-    {
       name: "send_facebook_page_message",
       description:
         "Send a text reply from the Facebook Page to a customer in Messenger only when the owner explicitly asks to send/reply to a Facebook inbox customer. Requires a recipient PSID, or enough inbox context such as conversationId or customerName to resolve the PSID.",
@@ -340,7 +332,6 @@ export function createCeoPartnerTools({ config, storage, getFreshSnapshot, works
         const snapshot = await getMetaSnapshot();
         return pickMetaArea(snapshot, area);
       },
-      get_latest_business_report: async () => (await storage.getLatestReport?.()) || "No report has been generated yet.",
       send_facebook_page_message: async ({ recipientId, conversationId, customerName, text, messageType = "RESPONSE" } = {}) => {
         const snapshot = await getMetaSnapshot();
         const resolvedRecipientId = findCustomerRecipientId(snapshot, { recipientId, conversationId, customerName });

@@ -197,7 +197,9 @@ test("LINE chatbot fetches fresh Meta data before pushing answer", async () => {
     storage: {
       saveLineSource: async () => {},
       saveSnapshot: async (snapshot) => events.push(["snapshot", snapshot.page.name]),
-      getLatestReport: async () => "latest report",
+      getLatestReport: async () => {
+        throw new Error("chat should not read stored reports");
+      },
       getLatestSnapshot: async () => ({ page: { name: "Old snapshot" } })
     },
     getDateRange: () => ({ date: "2026-05-31", since: "2026-05-31", until: "2026-05-31" }),
@@ -211,6 +213,7 @@ test("LINE chatbot fetches fresh Meta data before pushing answer", async () => {
     },
     generateText: async ({ prompt, functionDeclarations, functionHandlers }) => {
       events.push(["prompt", prompt.includes("Fresh Meta Page"), prompt.includes("Old snapshot")]);
+      events.push(["stored-report", prompt.includes("latest report")]);
       events.push(["tools", functionDeclarations.some((declaration) => declaration.name === "get_latest_meta_snapshot")]);
       const toolResult = await functionHandlers.get_latest_meta_snapshot({ area: "inbox" });
       events.push(["tool-result", toolResult.page.name]);
@@ -233,6 +236,7 @@ test("LINE chatbot fetches fresh Meta data before pushing answer", async () => {
     ["meta", "2026-05-31"],
     ["snapshot", "Fresh Meta Page"],
     ["prompt", true, false],
+    ["stored-report", false],
     ["tools", true],
     ["meta", "2026-05-31"],
     ["snapshot", "Fresh Meta Page"],

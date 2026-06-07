@@ -37,7 +37,7 @@ test("storage returns latest report and snapshot", async () => {
   assert.deepEqual(await storage.getLatestSnapshot(), { page: { name: "Fulltank Garage" } });
 });
 
-test("daily report fetches Meta, generates AI report, stores, and pushes LINE", async () => {
+test("daily report fetches Meta, generates fresh AI report, stores snapshot only, and pushes LINE", async () => {
   const events = [];
   const storage = {
     saveSnapshot: async (snapshot) => {
@@ -78,26 +78,19 @@ test("daily report fetches Meta, generates AI report, stores, and pushes LINE", 
   });
 
   assert.equal(result.ok, true);
-  assert.deepEqual(events, [
+  assert.deepEqual(events.slice(0, 4), [
     ["range", "2026-05-31", "2026-05-31", undefined],
     ["snapshot", "2026-05-31"],
     ["schema", true],
-    ["code-execution", true],
-    [
-      "report",
-      "2026-05-31",
-      "CEO Partner รายงานประจำวัน\n\nสรุปเมื่อวาน: AI summary\n\nสิ่งที่ควรทำวันนี้:\n1. Action one\n\nไอเดียคอนเทนต์:\n1. Content one\n\nคำแนะนำโฆษณา:\n1. Ad one\n\nแนวโน้ม Inbox: Inbox trend\n\nPriority: Priority one",
-      42
-    ],
-    [
-      "push",
-      "U123",
-      "CEO Partner รายงานประจำวัน\n\nสรุปเมื่อวาน: AI summary\n\nสิ่งที่ควรทำวันนี้:\n1. Action one\n\nไอเดียคอนเทนต์:\n1. Content one\n\nคำแนะนำโฆษณา:\n1. Ad one\n\nแนวโน้ม Inbox: Inbox trend\n\nPriority: Priority one"
-    ]
+    ["code-execution", true]
   ]);
+  assert.equal(events.some(([eventName]) => eventName === "report"), false);
+  assert.equal(events.at(-1)[0], "push");
+  assert.equal(events.at(-1)[1], "U123");
+  assert.match(events.at(-1)[2], /AI summary/);
 });
 
-test("daily report defaults to yesterday in Bangkok time", async () => {
+test("daily report defaults to yesterday in Bangkok time without saving report text", async () => {
   const events = [];
   await runDailyReport({
     config: {
@@ -106,7 +99,7 @@ test("daily report defaults to yesterday in Bangkok time", async () => {
     },
     storage: {
       saveSnapshot: async () => 1,
-      saveReport: async ({ reportDate }) => events.push(["report", reportDate]),
+      saveReport: async ({ reportDate }) => events.push(["unexpected-report-save", reportDate]),
       getDefaultLineTarget: async () => ""
     },
     now: new Date("2026-06-01T01:30:00+07:00"),
@@ -127,8 +120,7 @@ test("daily report defaults to yesterday in Bangkok time", async () => {
   });
 
   assert.deepEqual(events, [
-    ["range", "2026-05-31", "2026-05-31", undefined],
-    ["report", "2026-05-31"]
+    ["range", "2026-05-31", "2026-05-31", undefined]
   ]);
 });
 

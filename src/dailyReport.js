@@ -23,7 +23,7 @@ export async function runDailyReport({
       pageId: config.meta?.pageId ?? snapshot.page?.id,
       adAccountId: config.meta?.adAccountId ?? snapshot.adAccountId
     };
-    const snapshotId = await storage.saveSnapshot(snapshotWithAssets);
+    await storage.saveSnapshot(snapshotWithAssets);
     const prompt = buildDailyReportPrompt({
       reportDate: dateRange.date,
       snapshot: snapshotWithAssets
@@ -37,12 +37,6 @@ export async function runDailyReport({
       responseSchema: buildDailyReportSchema()
     });
     const reportText = formatDailyReportJson(JSON.parse(reportOutput));
-
-    await storage.saveReport({
-      reportDate: dateRange.date,
-      reportText,
-      snapshotId
-    });
 
     const target = config.line.targetId || (await storage.getDefaultLineTarget());
     if (target) {

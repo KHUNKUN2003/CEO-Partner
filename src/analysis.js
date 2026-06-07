@@ -208,19 +208,16 @@ export function formatDailyReportJson(report) {
     .trim();
 }
 
-export function buildChatContext({ latestReport, latestSnapshot }) {
+export function buildChatContext({ latestSnapshot }) {
   return [
-    "Optional latest AI business report:",
-    latestReport || "No report has been generated yet.",
-    "",
-    "Optional Meta API context summary:",
+    "Optional live Meta API context summary:",
     prettyJson(summarizeMetaSnapshot(latestSnapshot || {}))
   ].join("\n");
 }
 
-export function buildChatPrompt({ latestReport, latestSnapshot, message, includeContext = true, currentDateTime = "" }) {
+export function buildChatPrompt({ latestSnapshot, message, includeContext = true, currentDateTime = "" }) {
   const contextLines = includeContext
-    ? ["", buildChatContext({ latestReport, latestSnapshot })]
+    ? ["", buildChatContext({ latestSnapshot })]
     : ["", "Optional business and Meta API context may be available as cached reference data and function tools."];
 
   return [

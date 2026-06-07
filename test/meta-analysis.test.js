@@ -271,14 +271,15 @@ test("daily report schema and formatter produce stable LINE text", () => {
   assert.match(text, /Priority: ปิดลูกค้าที่ถามราคาแล้ว/);
 });
 
-test("chat prompt includes latest report and owner question", () => {
+test("chat prompt excludes stored reports and includes owner question", () => {
   const prompt = buildChatPrompt({
     latestReport: "Yesterday report",
     latestSnapshot: { page: { name: "Fulltank Garage" } },
     message: "what should we do today?"
   });
 
-  assert.match(prompt, /Yesterday report/);
+  assert.doesNotMatch(prompt, /Yesterday report/);
+  assert.match(prompt, /Optional live Meta API context summary/);
   assert.match(prompt, /what should we do today/);
 });
 
@@ -522,10 +523,10 @@ test("Gemini function calling wraps string tool responses in an object", async (
   const answer = await generateText({
     apiKey: "key",
     model: "gemini-3.5-flash",
-    prompt: "latest report",
+    prompt: "latest meta status",
     functionDeclarations: buildCeoPartnerFunctionDeclarations(),
     functionHandlers: {
-      get_latest_business_report: async () => "latest report text"
+      get_latest_meta_snapshot: async () => "latest meta text"
     },
     fetchImpl: async (_url, options) => {
       const body = JSON.parse(options.body);
@@ -536,7 +537,7 @@ test("Gemini function calling wraps string tool responses in an object", async (
             {
               content: {
                 role: "model",
-                parts: [{ functionCall: { name: "get_latest_business_report", args: {} } }]
+                parts: [{ functionCall: { name: "get_latest_meta_snapshot", args: {} } }]
               }
             }
           ]
@@ -548,14 +549,16 @@ test("Gemini function calling wraps string tool responses in an object", async (
 
   assert.equal(answer, "final answer");
   assert.deepEqual(requests[1].contents.at(-1).parts[0].functionResponse.response, {
-    result: "latest report text"
+    result: "latest meta text"
   });
 });
 
-test("CEO Partner tools read latest report and filtered Meta snapshot", async () => {
+test("CEO Partner tools read filtered fresh Meta snapshot without stored reports", async () => {
   const tools = createCeoPartnerTools({
     storage: {
-      getLatestReport: async () => "latest report",
+      getLatestReport: async () => {
+        throw new Error("stored reports should not be read");
+      },
       getLatestSnapshot: async () => ({
         page: { name: "Fulltank Garage" },
         inbox: { conversations: [] },
@@ -569,7 +572,7 @@ test("CEO Partner tools read latest report and filtered Meta snapshot", async ()
     })
   });
 
-  assert.equal(await tools.handlers.get_latest_business_report(), "latest report");
+  assert.equal("get_latest_business_report" in tools.handlers, false);
   assert.deepEqual(await tools.handlers.get_latest_meta_snapshot({ area: "inbox" }), {
     page: { name: "Fresh Fulltank" },
     inbox: { totalConversations: 1, recentConversations: [{ id: "c1", messages: [] }] }
