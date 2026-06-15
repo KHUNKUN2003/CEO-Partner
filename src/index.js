@@ -5,7 +5,7 @@ import { startScheduler } from "./scheduler.js";
 
 const config = loadConfig();
 const storage = createStorage(config.neon.databaseUrl);
-const app = createApp({ config, storage });
+const app = createApp({ config, storage, awaitLineEvents: false });
 
 startScheduler({ config, storage });
 

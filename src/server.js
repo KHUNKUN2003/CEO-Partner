@@ -213,7 +213,8 @@ export function createApp({
   showLoadingAnimation = defaultShowLoadingAnimation,
   fetchMetaSnapshot = defaultFetchMetaSnapshot,
   getDateRange = getBangkokYesterday,
-  lineLoadingRenewalIntervalMs = LINE_LOADING_RENEWAL_INTERVAL_MS
+  lineLoadingRenewalIntervalMs = LINE_LOADING_RENEWAL_INTERVAL_MS,
+  awaitLineEvents = true
 }) {
   const app = express();
   app.use(express.json({ verify: rawBodySaver }));
@@ -230,19 +231,27 @@ export function createApp({
       return;
     }
 
+    const eventTasks = (req.body.events ?? []).map((event) =>
+      handleLineEvent({
+        event,
+        config,
+        storage,
+        generateText,
+        replyText,
+        pushText,
+        showLoadingAnimation,
+        fetchMetaSnapshot,
+        getDateRange,
+        lineLoadingRenewalIntervalMs
+      })
+    );
+
     try {
-      for (const event of req.body.events ?? []) {
-        await handleLineEvent({
-          event,
-          config,
-          storage,
-          generateText,
-          replyText,
-          pushText,
-          showLoadingAnimation,
-          fetchMetaSnapshot,
-          getDateRange,
-          lineLoadingRenewalIntervalMs
+      if (awaitLineEvents) {
+        await Promise.all(eventTasks);
+      } else {
+        Promise.all(eventTasks).catch((error) => {
+          console.error(error);
         });
       }
       res.json({ ok: true });

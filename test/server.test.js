@@ -89,6 +89,58 @@ test("LINE webhook starts loading animation, then pushes answer without fallback
   ]);
 });
 
+test("LINE webhook can acknowledge before background processing finishes", async () => {
+  let releaseProcessing;
+  const processingStarted = new Promise((resolve) => {
+    releaseProcessing = resolve;
+  });
+  const events = [];
+  const { rawBody, signature } = signedBody({
+    events: [
+      {
+        type: "message",
+        replyToken: "reply-token",
+        source: { type: "user", userId: "U123" },
+        message: { type: "text", text: "slow question" }
+      }
+    ]
+  });
+  const app = createApp({
+    config: {
+      line: { channelSecret: "secret", channelAccessToken: "line-token" },
+      google: { apiKey: "google-token", model: "gemini" }
+    },
+    storage: {
+      saveLineSource: async () => {},
+      saveSnapshot: async () => {},
+      getDefaultLineTarget: async () => "U123"
+    },
+    generateText: async () => {
+      await processingStarted;
+      return "slow answer";
+    },
+    fetchMetaSnapshot: async () => ({ page: { name: "Fulltank Garage" }, adInsights: { data: [] } }),
+    showLoadingAnimation: async () => events.push(["loading"]),
+    pushText: async ({ text }) => events.push(["push", text]),
+    awaitLineEvents: false
+  });
+
+  const response = await app.request("/webhook/line", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-line-signature": signature },
+    body: rawBody
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body, { ok: true });
+  assert.equal(events.some(([eventName]) => eventName === "push"), false);
+
+  releaseProcessing();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(events, [["loading"], ["push", "slow answer"]]);
+});
+
 test("LINE webhook renews loading animation while a long answer is processing", async () => {
   const events = [];
   const { rawBody, signature } = signedBody({
