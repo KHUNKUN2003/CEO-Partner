@@ -37,6 +37,23 @@ test("config accepts required values and applies defaults", () => {
   assert.equal(config.google.workspace.serviceAccountEmail, "");
   assert.equal(config.google.workspace.oauthRedirectUri, "http://127.0.0.1:53682/oauth2callback");
   assert.equal(config.google.workspace.oauthRefreshToken, "");
+  assert.deepEqual(config.line.targetIds, []);
+});
+
+test("config parses multiple LINE report targets", () => {
+  const config = loadConfig({
+    NEON_DATABASE_URL: "postgresql://example",
+    META_ACCESS_TOKEN: "meta-token",
+    META_PAGE_ID: "731445173377155",
+    META_AD_ACCOUNT_ID: "act_3587793018144053",
+    GOOGLE_AI_API_KEY: "google-token",
+    LINE_CHANNEL_SECRET: "line-secret",
+    LINE_CHANNEL_ACCESS_TOKEN: "line-token",
+    LINE_TARGET_IDS: "U123, U456",
+    LINE_TARGET_ID: "U123"
+  });
+
+  assert.deepEqual(config.line.targetIds, ["U123", "U456"]);
 });
 
 test("Bangkok yesterday returns a stable local date", () => {

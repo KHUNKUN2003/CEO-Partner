@@ -37,6 +37,18 @@ test("storage returns latest report and snapshot", async () => {
   assert.deepEqual(await storage.getLatestSnapshot(), { page: { name: "Fulltank Garage" } });
 });
 
+test("storage returns all LINE targets newest first", async () => {
+  const storage = createStorageWithQuery(async (strings) => {
+    const text = strings.join("?");
+    if (text.includes("from line_users")) {
+      return [{ source_id: "U456" }, { source_id: "U123" }];
+    }
+    return [];
+  });
+
+  assert.deepEqual(await storage.getLineTargets(), ["U456", "U123"]);
+});
+
 test("daily report fetches Meta, generates fresh AI report, stores snapshot only, and pushes LINE", async () => {
   const events = [];
   const storage = {
@@ -53,7 +65,7 @@ test("daily report fetches Meta, generates fresh AI report, stores snapshot only
 
   const result = await runDailyReport({
     config: {
-      line: { channelAccessToken: "line-token", targetId: "" },
+      line: { channelAccessToken: "line-token", targetId: "", targetIds: [] },
       google: { apiKey: "google-token", model: "gemini", codeExecution: true }
     },
     dateRange: { date: "2026-05-31", since: "2026-05-31", until: "2026-05-31" },
@@ -88,13 +100,58 @@ test("daily report fetches Meta, generates fresh AI report, stores snapshot only
   assert.equal(events.at(-1)[0], "push");
   assert.equal(events.at(-1)[1], "U123");
   assert.match(events.at(-1)[2], /AI summary/);
+  assert.equal(result.pushedCount, 1);
+  assert.equal(result.failedCount, 0);
+});
+
+test("daily report pushes to every configured LINE target and tolerates one failed push", async () => {
+  const events = [];
+  const result = await runDailyReport({
+    config: {
+      line: { channelAccessToken: "line-token", targetId: "", targetIds: ["U123", "U456"] },
+      google: { apiKey: "google-token", model: "gemini" }
+    },
+    dateRange: { date: "2026-05-31", since: "2026-05-31", until: "2026-05-31" },
+    storage: {
+      saveSnapshot: async () => 42,
+      getLineTargets: async () => {
+        throw new Error("configured targets should be used");
+      }
+    },
+    fetchMetaSnapshot: async ({ dateRange }) => ({ reportDate: dateRange.date, page: { name: "Fulltank Garage" } }),
+    generateText: async () =>
+      JSON.stringify({
+        yesterday_summary: "AI summary",
+        today_actions: [],
+        content_ideas: [],
+        ad_recommendations: [],
+        inbox_trend: "Inbox trend",
+        priority: "Priority one"
+      }),
+    pushText: async ({ to }) => {
+      events.push(["push", to]);
+      if (to === "U456") {
+        throw new Error("LINE failed");
+      }
+    }
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(events, [
+    ["push", "U123"],
+    ["push", "U456"]
+  ]);
+  assert.equal(result.pushed, true);
+  assert.equal(result.pushedCount, 1);
+  assert.equal(result.failedCount, 1);
+  assert.equal(result.pushFailures[0].target, "U456");
 });
 
 test("daily report defaults to yesterday in Bangkok time without saving report text", async () => {
   const events = [];
   await runDailyReport({
     config: {
-      line: { channelAccessToken: "line-token", targetId: "" },
+      line: { channelAccessToken: "line-token", targetId: "", targetIds: [] },
       google: { apiKey: "google-token", model: "gemini" }
     },
     storage: {
@@ -129,4 +186,5 @@ test("createStorage exposes query-backed methods", () => {
 
   assert.equal(typeof storage.saveSnapshot, "function");
   assert.equal(typeof storage.getDefaultLineTarget, "function");
+  assert.equal(typeof storage.getLineTargets, "function");
 });

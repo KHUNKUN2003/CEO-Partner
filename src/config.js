@@ -39,6 +39,13 @@ function valueFrom(env, key) {
   return env[key] ?? DEFAULTS[key] ?? "";
 }
 
+function listFrom(value) {
+  return String(value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function loadConfig(env = process.env) {
   const missing = REQUIRED.filter((key) => !valueFrom(env, key));
   if (missing.length > 0) {
@@ -86,7 +93,13 @@ export function loadConfig(env = process.env) {
     line: {
       channelSecret: valueFrom(env, "LINE_CHANNEL_SECRET"),
       channelAccessToken: valueFrom(env, "LINE_CHANNEL_ACCESS_TOKEN"),
-      targetId: valueFrom(env, "LINE_TARGET_ID")
+      targetId: valueFrom(env, "LINE_TARGET_ID"),
+      targetIds: [
+        ...new Set([
+          ...listFrom(valueFrom(env, "LINE_TARGET_IDS")),
+          ...listFrom(valueFrom(env, "LINE_TARGET_ID"))
+        ])
+      ]
     }
   };
 }

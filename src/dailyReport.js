@@ -4,6 +4,45 @@ import { getBangkokYesterday } from "./dates.js";
 import { fetchMetaSnapshot as defaultFetchMetaSnapshot } from "./metaClient.js";
 import { pushText as defaultPushText } from "./lineClient.js";
 
+async function resolveLineTargets({ config, storage }) {
+  if (Array.isArray(config.line?.targetIds) && config.line.targetIds.length > 0) {
+    return [...new Set(config.line.targetIds.filter(Boolean))];
+  }
+
+  if (config.line?.targetId) {
+    return [config.line.targetId];
+  }
+
+  if (typeof storage.getLineTargets === "function") {
+    const targets = await storage.getLineTargets();
+    return [...new Set(targets.filter(Boolean))];
+  }
+
+  const target = await storage.getDefaultLineTarget?.();
+  return target ? [target] : [];
+}
+
+async function pushTextToTargets({ channelAccessToken, targets, text, pushText }) {
+  const results = await Promise.allSettled(
+    targets.map((to) =>
+      pushText({
+        channelAccessToken,
+        to,
+        text
+      })
+    )
+  );
+
+  return {
+    pushed: results.filter((result) => result.status === "fulfilled").length,
+    failed: results.filter((result) => result.status === "rejected").length,
+    failures: results
+      .map((result, index) => ({ result, target: targets[index] }))
+      .filter(({ result }) => result.status === "rejected")
+      .map(({ result, target }) => ({ target, error: result.reason?.message ?? String(result.reason) }))
+  };
+}
+
 export async function runDailyReport({
   config,
   storage,
@@ -38,24 +77,33 @@ export async function runDailyReport({
     });
     const reportText = formatDailyReportJson(JSON.parse(reportOutput));
 
-    const target = config.line.targetId || (await storage.getDefaultLineTarget());
-    if (target) {
-      await pushText({
-        channelAccessToken: config.line.channelAccessToken,
-        to: target,
-        text: reportText
-      });
-    }
+    const targets = await resolveLineTargets({ config, storage });
+    const pushResult = targets.length > 0
+      ? await pushTextToTargets({
+          channelAccessToken: config.line.channelAccessToken,
+          targets,
+          text: reportText,
+          pushText
+        })
+      : { pushed: 0, failed: 0, failures: [] };
 
-    return { ok: true, reportText, pushed: Boolean(target) };
+    return {
+      ok: true,
+      reportText,
+      pushed: pushResult.pushed > 0,
+      pushedCount: pushResult.pushed,
+      failedCount: pushResult.failed,
+      pushFailures: pushResult.failures
+    };
   } catch (error) {
     const message = `CEO Partner report failed: ${error.message}`;
-    const target = config.line.targetId || (await storage.getDefaultLineTarget?.());
-    if (target) {
-      await pushText({
+    const targets = await resolveLineTargets({ config, storage });
+    if (targets.length > 0) {
+      await pushTextToTargets({
         channelAccessToken: config.line.channelAccessToken,
-        to: target,
-        text: message
+        targets,
+        text: message,
+        pushText
       });
     }
     return { ok: false, error: error.message };

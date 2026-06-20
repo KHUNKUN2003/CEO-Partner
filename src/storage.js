@@ -58,6 +58,15 @@ export function createStorageWithQuery(sql) {
         limit 1
       `;
       return rows[0]?.source_id ?? "";
+    },
+
+    async getLineTargets() {
+      const rows = await sql`
+        select source_id
+        from line_users
+        order by last_seen_at desc
+      `;
+      return rows.map((row) => row.source_id).filter(Boolean);
     }
   };
 }
