@@ -79,6 +79,24 @@ test("daily report fetches Meta, generates fresh AI report, stores snapshot only
       events.push(["code-execution", enableCodeExecution]);
       return JSON.stringify({
         yesterday_summary: "AI summary",
+        lead_scores: [
+          {
+            customer: "Customer A",
+            score: 82,
+            temperature: "hot",
+            reason: "asked price",
+            next_action: "Send exact package price"
+          }
+        ],
+        action_priority: [
+          {
+            rank: 1,
+            action: "Reply to Customer A",
+            owner: "Admin",
+            urgency: "high",
+            expected_impact: "recover hot lead"
+          }
+        ],
         today_actions: ["Action one"],
         content_ideas: ["Content one"],
         ad_recommendations: ["Ad one"],
@@ -122,6 +140,8 @@ test("daily report pushes to every configured LINE target and tolerates one fail
     generateText: async () =>
       JSON.stringify({
         yesterday_summary: "AI summary",
+        lead_scores: [],
+        action_priority: [],
         today_actions: [],
         content_ideas: [],
         ad_recommendations: [],
@@ -167,6 +187,8 @@ test("daily report defaults to yesterday in Bangkok time without saving report t
     generateText: async () =>
       JSON.stringify({
         yesterday_summary: "AI summary",
+        lead_scores: [],
+        action_priority: [],
         today_actions: [],
         content_ideas: [],
         ad_recommendations: [],

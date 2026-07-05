@@ -15,6 +15,7 @@ import {
   sendFacebookPageMessage
 } from "../src/metaClient.js";
 import {
+  analyzeLeadScores,
   buildChatContext,
   buildChatPrompt,
   buildDailyReportPrompt,
@@ -252,12 +253,31 @@ test("daily report prompt includes business context and broad AI instruction", (
   assert.match(prompt, /Fulltank Garage/);
   assert.match(prompt, /2026-05-31/);
   assert.match(prompt, /do not limit yourself to a narrow template/i);
+  assert.match(prompt, /leadScoring/);
 });
 
 test("daily report schema and formatter produce stable LINE text", () => {
   const schema = buildDailyReportSchema();
   const text = formatDailyReportJson({
     yesterday_summary: "แชทสนใจราคาเพิ่มขึ้น",
+    lead_scores: [
+      {
+        customer: "Customer A",
+        score: 86,
+        temperature: "hot",
+        reason: "asked price and car model",
+        next_action: "Send exact package price"
+      }
+    ],
+    action_priority: [
+      {
+        rank: 1,
+        action: "Reply to Customer A",
+        owner: "Admin",
+        urgency: "high",
+        expected_impact: "increase close rate"
+      }
+    ],
     today_actions: ["ตอบลูกค้าที่ค้าง", "เปิดโพสต์โปรโมชัน"],
     content_ideas: ["รีวิวรถก่อนหลังติดฟิล์ม"],
     ad_recommendations: ["ดูแคมเปญที่ CTR สูง"],
@@ -266,9 +286,53 @@ test("daily report schema and formatter produce stable LINE text", () => {
   });
 
   assert.match(schema.required.join(","), /priority/);
+  assert.match(schema.required.join(","), /lead_scores/);
+  assert.match(schema.required.join(","), /action_priority/);
+  assert.match(text, /Lead Scoring/);
+  assert.match(text, /86\/100/);
+  assert.match(text, /Action Priority/);
   assert.match(text, /CEO Partner รายงานประจำวัน/);
   assert.match(text, /ตอบลูกค้าที่ค้าง/);
   assert.match(text, /Priority: ปิดลูกค้าที่ถามราคาแล้ว/);
+});
+
+test("lead scoring ranks hot inbox leads from buying intent signals", () => {
+  const scores = analyzeLeadScores({
+    page: { id: "page-1", name: "Fulltank Garage" },
+    inbox: {
+      conversations: [
+        {
+          id: "c-hot",
+          updated_time: "2026-07-04T10:00:00+0000",
+          message_count: 4,
+          unread_count: 1,
+          senders: { data: [{ id: "page-1", name: "Fulltank Garage" }, { id: "psid-1", name: "Customer Hot" }] },
+          messages: {
+            data: [
+              { message: "Honda City 2018 3M film price? any booking tomorrow?" }
+            ]
+          }
+        },
+        {
+          id: "c-cold",
+          updated_time: "2026-07-04T09:00:00+0000",
+          message_count: 1,
+          unread_count: 0,
+          senders: { data: [{ id: "page-1", name: "Fulltank Garage" }, { id: "psid-2", name: "Customer Cold" }] },
+          messages: {
+            data: [
+              { message: "thanks" }
+            ]
+          }
+        }
+      ]
+    }
+  });
+
+  assert.equal(scores[0].conversationId, "c-hot");
+  assert.equal(scores[0].temperature, "hot");
+  assert.ok(scores[0].score >= 70);
+  assert.match(scores[0].reasons.join(","), /asked price/);
 });
 
 test("chat prompt excludes stored reports and includes owner question", () => {
