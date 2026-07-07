@@ -354,7 +354,8 @@ test("chat prompt allows general conversation while providing Meta context", () 
     message: "Explain black holes"
   });
 
-  assert.match(prompt, /general-purpose Gemini chatbot/i);
+  assert.match(prompt, /elite Business Strategist/i);
+  assert.match(prompt, /general-purpose AI assistant/i);
   assert.match(prompt, /answer any topic/i);
   assert.match(prompt, /Meta API context/i);
 });
@@ -450,7 +451,8 @@ test("chat context can be separated from the unrestricted chat prompt", () => {
   });
 
   assert.match(context, /Fulltank Garage/);
-  assert.match(prompt, /general-purpose Gemini chatbot/i);
+  assert.match(prompt, /elite Business Strategist/i);
+  assert.match(prompt, /general-purpose AI assistant/i);
   assert.match(prompt, /answer any topic/i);
   assert.doesNotMatch(prompt, /Yesterday report/);
 });
