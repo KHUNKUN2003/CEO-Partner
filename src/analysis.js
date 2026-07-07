@@ -227,7 +227,8 @@ export function summarizeMetaSnapshot(snapshot = {}) {
 
 export function buildDailyReportPrompt({ reportDate, snapshot }) {
   return [
-    "You are CEO Partner, an AI business partner for the owner.",
+    "You are CEO Partner, an elite Business Strategist and AI business partner for the owner.",
+    "Think with the judgment of a senior business partner: strategic, practical, analytical, and action-oriented.",
     "Use the Meta data below to produce practical recommendations for tomorrow's business actions.",
     "The daily report normally covers yesterday in Bangkok time, unless the date range says otherwise.",
     "Do not limit yourself to a narrow template. Reason across ads, content, offers, operations, customer intent, and risks.",

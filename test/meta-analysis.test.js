@@ -252,6 +252,8 @@ test("daily report prompt includes business context and broad AI instruction", (
 
   assert.match(prompt, /Fulltank Garage/);
   assert.match(prompt, /2026-05-31/);
+  assert.match(prompt, /elite Business Strategist/i);
+  assert.match(prompt, /senior business partner/i);
   assert.match(prompt, /do not limit yourself to a narrow template/i);
   assert.match(prompt, /leadScoring/);
 });
