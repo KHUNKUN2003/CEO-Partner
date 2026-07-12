@@ -1,6 +1,7 @@
 import { summarizeMetaSnapshot } from "./analysis.js";
 import { createGoogleWorkspaceClient } from "./googleWorkspaceClient.js";
 import { sendFacebookPageMessage } from "./metaClient.js";
+import { searchPlacesText } from "./placesClient.js";
 
 export function buildCeoPartnerFunctionDeclarations() {
   return [
@@ -49,6 +50,29 @@ export function buildCeoPartnerFunctionDeclarations() {
           }
         },
         required: ["text"]
+      }
+    },
+    {
+      name: "search_nearby_competitors",
+      description:
+        "Search Google Places for nearby business competitors or related shops when the user asks about local competitors, nearby shops, market around the store, ratings, reviews, or local positioning.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Search query. Example: ร้านติดฟิล์มรถยนต์ ใกล้ กาญจนาภิเษก บางแค. Omit to use the configured default competitor query."
+          },
+          radiusMeters: {
+            type: "number",
+            description: "Optional search radius in meters around the configured store location."
+          },
+          maxResultCount: {
+            type: "number",
+            description: "Maximum number of competitors to return, from 1 to 20."
+          }
+        }
       }
     },
     {
@@ -325,6 +349,15 @@ function findCustomerRecipientId(snapshot = {}, { recipientId, conversationId, c
 export function createCeoPartnerTools({ config, storage, getFreshSnapshot, workspaceClient, messengerSender = sendFacebookPageMessage }) {
   const getWorkspaceClient = () => workspaceClient || createGoogleWorkspaceClient({ config });
   const getMetaSnapshot = async () => (await getFreshSnapshot?.()) ?? (await storage.getLatestSnapshot?.()) ?? {};
+  const searchCompetitors = async ({ query, radiusMeters, maxResultCount } = {}) =>
+    searchPlacesText({
+      apiKey: config.google?.places?.apiKey,
+      query: query || config.google?.places?.defaultQuery,
+      latitude: config.google?.places?.latitude,
+      longitude: config.google?.places?.longitude,
+      radiusMeters: radiusMeters || config.google?.places?.radiusMeters,
+      maxResultCount
+    });
   return {
     declarations: buildCeoPartnerFunctionDeclarations(),
     handlers: {
@@ -345,6 +378,7 @@ export function createCeoPartnerTools({ config, storage, getFreshSnapshot, works
           messageType
         });
       },
+      search_nearby_competitors: searchCompetitors,
       create_google_doc: async ({ title, content } = {}) => getWorkspaceClient().createDocument({ title, content }),
       create_calendar_event: async (event = {}) => getWorkspaceClient().createCalendarEvent(event),
       create_google_task: async (task = {}) => getWorkspaceClient().createTask(task),

@@ -20,6 +20,11 @@ const DEFAULTS = {
   GOOGLE_OAUTH_CLIENT_SECRET: "",
   GOOGLE_OAUTH_REDIRECT_URI: "http://127.0.0.1:53682/oauth2callback",
   GOOGLE_OAUTH_REFRESH_TOKEN: "",
+  GOOGLE_PLACES_API_KEY: "",
+  GOOGLE_PLACES_DEFAULT_QUERY: "ร้านติดฟิล์มรถยนต์ใกล้ Fulltank Garage กาญจนาภิเษก บางแค",
+  GOOGLE_PLACES_LATITUDE: "",
+  GOOGLE_PLACES_LONGITUDE: "",
+  GOOGLE_PLACES_RADIUS_METERS: "5000",
   GOOGLE_SERVICE_ACCOUNT_EMAIL: "",
   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: "",
   GOOGLE_TASKS_LIST_ID: "@default",
@@ -106,6 +111,13 @@ export function loadConfig(env = process.env) {
         docsFolderId: valueFrom(env, "GOOGLE_DOCS_FOLDER_ID"),
         tasksListId: valueFrom(env, "GOOGLE_TASKS_LIST_ID"),
         shareEmail: valueFrom(env, "GOOGLE_WORKSPACE_SHARE_EMAIL")
+      },
+      places: {
+        apiKey: valueFrom(env, "GOOGLE_PLACES_API_KEY") || valueFrom(env, "GOOGLE_AI_API_KEY"),
+        defaultQuery: valueFrom(env, "GOOGLE_PLACES_DEFAULT_QUERY"),
+        latitude: valueFrom(env, "GOOGLE_PLACES_LATITUDE"),
+        longitude: valueFrom(env, "GOOGLE_PLACES_LONGITUDE"),
+        radiusMeters: Number(valueFrom(env, "GOOGLE_PLACES_RADIUS_METERS"))
       }
     },
     line: {

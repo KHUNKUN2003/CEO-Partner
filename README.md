@@ -11,6 +11,7 @@ CEO Partner is a Node.js backend automation service for a business owner. It fet
 - Fetches fresh Meta data before answering LINE chat messages, then falls back to the latest stored snapshot if Meta is unavailable.
 - Uses DeepSeek as the default AI model for LINE chat and daily reports.
 - Keeps Google Workspace integrations separate so the LINE chatbot can create Google Docs, Google Calendar events, Google Tasks to-dos, Google Sheets charts, and visually designed Google Slides reports when Google Workspace credentials are configured.
+- Lets DeepSeek call Google Places search for nearby competitor and local market analysis when `GOOGLE_PLACES_API_KEY` is configured.
 - Builds presentation reports with PptxGenJS first, then uploads and converts them to native Google Slides so the output uses stronger visual layouts than plain text boxes.
 - Logs the first LINE `userId`, `groupId`, or `roomId` that messages the bot so it can be used as `LINE_TARGET_ID`.
 
@@ -49,6 +50,11 @@ GOOGLE_OAUTH_CLIENT_ID=
 GOOGLE_OAUTH_CLIENT_SECRET=
 GOOGLE_OAUTH_REDIRECT_URI=http://127.0.0.1:53682/oauth2callback
 GOOGLE_OAUTH_REFRESH_TOKEN=
+GOOGLE_PLACES_API_KEY=
+GOOGLE_PLACES_DEFAULT_QUERY=ร้านติดฟิล์มรถยนต์ใกล้ Fulltank Garage กาญจนาภิเษก บางแค
+GOOGLE_PLACES_LATITUDE=
+GOOGLE_PLACES_LONGITUDE=
+GOOGLE_PLACES_RADIUS_METERS=5000
 GOOGLE_CALENDAR_ID=primary
 GOOGLE_DOCS_FOLDER_ID=
 GOOGLE_TASKS_LIST_ID=@default
