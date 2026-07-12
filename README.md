@@ -9,10 +9,8 @@ CEO Partner is a Node.js backend automation service for a business owner. It fet
 - Sends a daily LINE report on a cron schedule.
 - Receives LINE webhook messages and replies with AI using the latest stored business context.
 - Fetches fresh Meta data before answering LINE chat messages, then falls back to the latest stored snapshot if Meta is unavailable.
-- Enables Gemini Google Search grounding so current web information can support answers and sources can be appended when Gemini returns grounding metadata.
-- Enables Gemini Code Execution for daily report calculations when useful.
-- Uses Gemini explicit context caching for reusable LINE chat business/Meta reference data without limiting the chatbot's conversation topics.
-- Lets the LINE chatbot create Google Docs, Google Calendar events, Google Tasks to-dos, Google Sheets charts, and visually designed Google Slides reports through Gemini Function Calling when Google Workspace credentials are configured.
+- Uses DeepSeek as the default AI model for LINE chat and daily reports.
+- Keeps Google Workspace integrations separate so the LINE chatbot can create Google Docs, Google Calendar events, Google Tasks to-dos, Google Sheets charts, and visually designed Google Slides reports when Google Workspace credentials are configured.
 - Builds presentation reports with PptxGenJS first, then uploads and converts them to native Google Slides so the output uses stronger visual layouts than plain text boxes.
 - Logs the first LINE `userId`, `groupId`, or `roomId` that messages the bot so it can be used as `LINE_TARGET_ID`.
 
@@ -33,11 +31,15 @@ META_PAGE_ACCESS_TOKEN=
 META_PAGE_ID=731445173377155
 META_AD_ACCOUNT_ID=act_3587793018144053
 META_CONTENT_MAX_ITEMS=5000
+AI_PROVIDER=deepseek
+DEEPSEEK_API_KEY=
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_BASE_URL=https://api.deepseek.com
 GOOGLE_AI_API_KEY=
 GOOGLE_AI_MODEL=gemini-3.5-flash
-GOOGLE_SEARCH_GROUNDING=true
-GOOGLE_CODE_EXECUTION=true
-GOOGLE_CONTEXT_CACHE=true
+GOOGLE_SEARCH_GROUNDING=false
+GOOGLE_CODE_EXECUTION=false
+GOOGLE_CONTEXT_CACHE=false
 GOOGLE_CONTEXT_CACHE_TTL_SECONDS=3600
 GOOGLE_CONTEXT_CACHE_MIN_CHARS=4000
 GOOGLE_SERVICE_ACCOUNT_EMAIL=

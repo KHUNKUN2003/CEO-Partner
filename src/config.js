@@ -1,8 +1,13 @@
 import "dotenv/config";
 
 const DEFAULTS = {
+  AI_PROVIDER: "deepseek",
   APP_TIMEZONE: "Asia/Bangkok",
   DAILY_REPORT_CRON: "0 8 * * *",
+  DEEPSEEK_API_KEY: "",
+  DEEPSEEK_BASE_URL: "https://api.deepseek.com",
+  DEEPSEEK_MODEL: "deepseek-chat",
+  GOOGLE_AI_API_KEY: "",
   GOOGLE_AI_MODEL: "gemini-3.5-flash",
   GOOGLE_CODE_EXECUTION: "true",
   GOOGLE_CONTEXT_CACHE: "true",
@@ -30,7 +35,6 @@ const REQUIRED = [
   "META_ACCESS_TOKEN",
   "META_PAGE_ID",
   "META_AD_ACCOUNT_ID",
-  "GOOGLE_AI_API_KEY",
   "LINE_CHANNEL_SECRET",
   "LINE_CHANNEL_ACCESS_TOKEN"
 ];
@@ -47,7 +51,13 @@ function listFrom(value) {
 }
 
 export function loadConfig(env = process.env) {
+  const provider = valueFrom(env, "AI_PROVIDER").toLowerCase();
+  const aiApiKey = provider === "deepseek" ? valueFrom(env, "DEEPSEEK_API_KEY") : valueFrom(env, "GOOGLE_AI_API_KEY");
+  const aiModel = provider === "deepseek" ? valueFrom(env, "DEEPSEEK_MODEL") : valueFrom(env, "GOOGLE_AI_MODEL");
   const missing = REQUIRED.filter((key) => !valueFrom(env, key));
+  if (!aiApiKey) {
+    missing.push(provider === "deepseek" ? "DEEPSEEK_API_KEY" : "GOOGLE_AI_API_KEY");
+  }
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(", ")}`);
   }
@@ -60,6 +70,12 @@ export function loadConfig(env = process.env) {
     neon: {
       databaseUrl: valueFrom(env, "NEON_DATABASE_URL")
     },
+    ai: {
+      provider,
+      apiKey: aiApiKey,
+      model: aiModel,
+      baseUrl: provider === "deepseek" ? valueFrom(env, "DEEPSEEK_BASE_URL") : ""
+    },
     meta: {
       graphVersion: valueFrom(env, "META_GRAPH_VERSION"),
       accessToken: valueFrom(env, "META_ACCESS_TOKEN"),
@@ -69,11 +85,13 @@ export function loadConfig(env = process.env) {
       contentMaxItems: Number(valueFrom(env, "META_CONTENT_MAX_ITEMS"))
     },
     google: {
-      apiKey: valueFrom(env, "GOOGLE_AI_API_KEY"),
-      model: valueFrom(env, "GOOGLE_AI_MODEL"),
-      searchGrounding: valueFrom(env, "GOOGLE_SEARCH_GROUNDING").toLowerCase() !== "false",
-      codeExecution: valueFrom(env, "GOOGLE_CODE_EXECUTION").toLowerCase() !== "false",
-      contextCache: valueFrom(env, "GOOGLE_CONTEXT_CACHE").toLowerCase() !== "false",
+      provider,
+      apiKey: aiApiKey,
+      model: aiModel,
+      baseUrl: provider === "deepseek" ? valueFrom(env, "DEEPSEEK_BASE_URL") : "",
+      searchGrounding: provider !== "deepseek" && valueFrom(env, "GOOGLE_SEARCH_GROUNDING").toLowerCase() !== "false",
+      codeExecution: provider !== "deepseek" && valueFrom(env, "GOOGLE_CODE_EXECUTION").toLowerCase() !== "false",
+      contextCache: provider !== "deepseek" && valueFrom(env, "GOOGLE_CONTEXT_CACHE").toLowerCase() !== "false",
       contextCacheTtlSeconds: Number(valueFrom(env, "GOOGLE_CONTEXT_CACHE_TTL_SECONDS")),
       contextCacheMinChars: Number(valueFrom(env, "GOOGLE_CONTEXT_CACHE_MIN_CHARS")),
       workspace: {

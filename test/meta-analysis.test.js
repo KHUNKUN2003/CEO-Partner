@@ -23,7 +23,12 @@ import {
   formatDailyReportJson,
   summarizeMetaSnapshot
 } from "../src/analysis.js";
-import { buildGeminiRequest, extractTextWithGroundingSources, generateText } from "../src/aiClient.js";
+import {
+  buildGeminiRequest,
+  buildOpenAiCompatibleRequest,
+  extractTextWithGroundingSources,
+  generateText
+} from "../src/aiClient.js";
 import { buildCeoPartnerFunctionDeclarations, createCeoPartnerTools } from "../src/aiTools.js";
 
 test("Meta page URL includes requested page fields", () => {
@@ -619,6 +624,69 @@ test("Gemini function calling wraps string tool responses in an object", async (
   assert.deepEqual(requests[1].contents.at(-1).parts[0].functionResponse.response, {
     result: "latest meta text"
   });
+});
+
+test("DeepSeek request uses OpenAI-compatible chat completions shape", () => {
+  const body = buildOpenAiCompatibleRequest("return a report", {
+    model: "deepseek-chat",
+    responseSchema: buildDailyReportSchema(),
+    functionDeclarations: buildCeoPartnerFunctionDeclarations()
+  });
+
+  assert.equal(body.model, "deepseek-chat");
+  assert.equal(body.messages[0].role, "user");
+  assert.match(body.messages[0].content, /Return only valid JSON/);
+  assert.equal(body.response_format.type, "json_object");
+  assert.equal(body.tools[0].type, "function");
+  assert.equal(body.tools[0].function.name, "get_latest_meta_snapshot");
+});
+
+test("DeepSeek function calling executes tools and returns final text", async () => {
+  const requests = [];
+  const answer = await generateText({
+    provider: "deepseek",
+    apiKey: "key",
+    model: "deepseek-chat",
+    baseUrl: "https://api.deepseek.com",
+    prompt: "latest inbox trend",
+    functionDeclarations: buildCeoPartnerFunctionDeclarations(),
+    functionHandlers: {
+      get_latest_meta_snapshot: async ({ area }) => ({ area, inbox: { conversations: [{ id: "c1" }] } })
+    },
+    fetchImpl: async (_url, options) => {
+      const body = JSON.parse(options.body);
+      requests.push(body);
+      if (requests.length === 1) {
+        return Response.json({
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content: null,
+                tool_calls: [
+                  {
+                    id: "call_1",
+                    type: "function",
+                    function: {
+                      name: "get_latest_meta_snapshot",
+                      arguments: "{\"area\":\"inbox\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        });
+      }
+      return Response.json({ choices: [{ message: { role: "assistant", content: "Inbox has fresh leads" } }] });
+    }
+  });
+
+  assert.equal(answer, "Inbox has fresh leads");
+  assert.equal(requests[0].tools[0].function.name, "get_latest_meta_snapshot");
+  assert.equal(requests[1].messages.at(-1).role, "tool");
+  assert.equal(requests[1].messages.at(-1).tool_call_id, "call_1");
+  assert.match(requests[1].messages.at(-1).content, /"conversations"/);
 });
 
 test("CEO Partner tools read filtered fresh Meta snapshot without stored reports", async () => {

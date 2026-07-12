@@ -152,8 +152,10 @@ async function handleLineEvent({
         }
       : undefined;
     const answer = await generateText({
+      provider: config.google.provider,
       apiKey: config.google.apiKey,
       model: config.google.model,
+      baseUrl: config.google.baseUrl,
       prompt,
       enableGoogleSearch: config.google.searchGrounding,
       functionDeclarations: aiTools.declarations,

@@ -69,6 +69,31 @@ function extractFunctionCalls(body) {
   );
 }
 
+function parseToolArguments(value) {
+  if (!value) {
+    return {};
+  }
+  if (typeof value === "object") {
+    return value;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}
+
+function convertFunctionDeclarationsToOpenAiTools(functionDeclarations = []) {
+  return functionDeclarations.map((declaration) => ({
+    type: "function",
+    function: {
+      name: declaration.name,
+      description: declaration.description,
+      parameters: declaration.parameters || { type: "object", properties: {} }
+    }
+  }));
+}
+
 function truncateString(value, maxLength = 12000) {
   if (typeof value !== "string" || value.length <= maxLength) {
     return value;
@@ -192,6 +217,24 @@ async function postGemini({ apiKey, model, requestBody, fetchImpl }) {
   return body;
 }
 
+async function postOpenAiCompatible({ apiKey, baseUrl, requestBody, fetchImpl }) {
+  const response = await fetchImpl(`${String(baseUrl || "https://api.deepseek.com").replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(requestBody)
+  });
+  const body = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`OpenAI-compatible AI API failed: ${response.status} ${JSON.stringify(body)}`);
+  }
+
+  return body;
+}
+
 function normalizeModelName(model) {
   return model.startsWith("models/") ? model : `models/${model}`;
 }
@@ -208,6 +251,93 @@ function buildPromptWithCacheContext({ prompt, cacheContext }) {
     return prompt;
   }
   return [cacheContext.text, "", prompt].join("\n");
+}
+
+export function buildOpenAiCompatibleRequest(
+  prompt,
+  { model, functionDeclarations = [], responseSchema, cacheContext } = {}
+) {
+  const promptWithContext = buildPromptWithCacheContext({ prompt, cacheContext });
+  const jsonPrompt = responseSchema
+    ? `${promptWithContext}\n\nReturn only valid JSON that matches the requested structure. Do not include markdown fences.`
+    : promptWithContext;
+  const body = {
+    model,
+    messages: [{ role: "user", content: jsonPrompt }],
+    temperature: 0.8,
+    top_p: 0.95
+  };
+
+  const tools = convertFunctionDeclarationsToOpenAiTools(functionDeclarations);
+  if (tools.length) {
+    body.tools = tools;
+    body.tool_choice = "auto";
+  }
+  if (responseSchema) {
+    body.response_format = { type: "json_object" };
+  }
+
+  return body;
+}
+
+function extractOpenAiToolCalls(body) {
+  return body?.choices?.[0]?.message?.tool_calls ?? [];
+}
+
+function extractOpenAiText(body) {
+  return body?.choices?.[0]?.message?.content?.trim() ?? "";
+}
+
+async function generateOpenAiCompatibleText({
+  apiKey,
+  model,
+  prompt,
+  baseUrl,
+  functionDeclarations = [],
+  functionHandlers = {},
+  responseSchema,
+  cacheContext,
+  fetchImpl
+}) {
+  const request = buildOpenAiCompatibleRequest(prompt, {
+    model,
+    functionDeclarations,
+    responseSchema,
+    cacheContext
+  });
+
+  let body = await postOpenAiCompatible({ apiKey, baseUrl, requestBody: request, fetchImpl });
+  for (let round = 0; round < 3; round += 1) {
+    const toolCalls = extractOpenAiToolCalls(body);
+    if (toolCalls.length === 0) {
+      break;
+    }
+
+    request.messages.push(body.choices[0].message);
+    const functionCalls = toolCalls
+      .map((toolCall) => ({
+        id: toolCall.id,
+        name: toolCall.function?.name,
+        args: parseToolArguments(toolCall.function?.arguments)
+      }))
+      .filter((functionCall) => functionCall.name);
+    const functionResults = await executeFunctionCalls(functionCalls, functionHandlers);
+    functionResults.forEach((result, index) => {
+      request.messages.push({
+        role: "tool",
+        tool_call_id: functionCalls[index].id,
+        name: result.name,
+        content: JSON.stringify(result.response)
+      });
+    });
+    body = await postOpenAiCompatible({ apiKey, baseUrl, requestBody: request, fetchImpl });
+  }
+
+  const text = extractOpenAiText(body);
+  if (!text) {
+    throw new Error("AI API returned no text");
+  }
+  return text;
 }
 
 async function createGeminiCache({ apiKey, model, cacheContext, fetchImpl }) {
@@ -280,9 +410,11 @@ async function getCachedContentName({ apiKey, model, cacheContext, fetchImpl }) 
 }
 
 export async function generateText({
+  provider = "gemini",
   apiKey,
   model,
   prompt,
+  baseUrl,
   enableGoogleSearch = false,
   enableCodeExecution = false,
   functionDeclarations = [],
@@ -291,6 +423,20 @@ export async function generateText({
   cacheContext,
   fetchImpl = fetch
 }) {
+  if (provider === "deepseek") {
+    return generateOpenAiCompatibleText({
+      apiKey,
+      model,
+      prompt,
+      baseUrl,
+      functionDeclarations,
+      functionHandlers,
+      responseSchema,
+      cacheContext,
+      fetchImpl
+    });
+  }
+
   const cacheTools = buildTools({ enableGoogleSearch, enableCodeExecution, functionDeclarations });
   const cacheToolConfig =
     (enableGoogleSearch || enableCodeExecution) && functionDeclarations.length

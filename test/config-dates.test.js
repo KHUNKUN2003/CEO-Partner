@@ -7,7 +7,7 @@ import { getBangkokPreviousDays, getBangkokYesterday } from "../src/dates.js";
 test("config requires core production secrets", () => {
   assert.throws(
     () => loadConfig({}),
-    /Missing required environment variables: NEON_DATABASE_URL, META_ACCESS_TOKEN, META_PAGE_ID, META_AD_ACCOUNT_ID, GOOGLE_AI_API_KEY, LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN/
+    /Missing required environment variables: NEON_DATABASE_URL, META_ACCESS_TOKEN, META_PAGE_ID, META_AD_ACCOUNT_ID, LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN, DEEPSEEK_API_KEY/
   );
 });
 
@@ -17,7 +17,7 @@ test("config accepts required values and applies defaults", () => {
     META_ACCESS_TOKEN: "meta-token",
     META_PAGE_ID: "731445173377155",
     META_AD_ACCOUNT_ID: "act_3587793018144053",
-    GOOGLE_AI_API_KEY: "google-token",
+    DEEPSEEK_API_KEY: "deepseek-token",
     LINE_CHANNEL_SECRET: "line-secret",
     LINE_CHANNEL_ACCESS_TOKEN: "line-token"
   });
@@ -26,10 +26,13 @@ test("config accepts required values and applies defaults", () => {
   assert.equal(config.timezone, "Asia/Bangkok");
   assert.equal(config.meta.graphVersion, "v24.0");
   assert.equal(config.meta.contentMaxItems, 5000);
-  assert.equal(config.google.model, "gemini-3.5-flash");
-  assert.equal(config.google.searchGrounding, true);
-  assert.equal(config.google.codeExecution, true);
-  assert.equal(config.google.contextCache, true);
+  assert.equal(config.ai.provider, "deepseek");
+  assert.equal(config.ai.model, "deepseek-chat");
+  assert.equal(config.google.provider, "deepseek");
+  assert.equal(config.google.model, "deepseek-chat");
+  assert.equal(config.google.searchGrounding, false);
+  assert.equal(config.google.codeExecution, false);
+  assert.equal(config.google.contextCache, false);
   assert.equal(config.google.contextCacheTtlSeconds, 3600);
   assert.equal(config.google.contextCacheMinChars, 4000);
   assert.equal(config.google.workspace.calendarId, "primary");
@@ -46,7 +49,7 @@ test("config parses multiple LINE report targets", () => {
     META_ACCESS_TOKEN: "meta-token",
     META_PAGE_ID: "731445173377155",
     META_AD_ACCOUNT_ID: "act_3587793018144053",
-    GOOGLE_AI_API_KEY: "google-token",
+    DEEPSEEK_API_KEY: "deepseek-token",
     LINE_CHANNEL_SECRET: "line-secret",
     LINE_CHANNEL_ACCESS_TOKEN: "line-token",
     LINE_TARGET_IDS: "U123, U456",
